@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { API } from '../lib/api';
+import { API } from '../../lib/api';
 import { KnowledgeAnswer } from '@kilnflow/shared-types';
 
 export default function KnowledgePage() {
