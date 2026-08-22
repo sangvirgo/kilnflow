@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Ghi chu: them cot embeddingModel de dam bao seed va query dung chung
+// mot vector-space (gemini vs local-hash khong ho tron voi nhau).
+
+model Order {
+  id          String   @id @default(cuid())
+  rawText     String
+  parsedJson  Json
+  confidence  Float?
+  assumptions Json?
+  createdAt   DateTime @default(now())
+  batches     Batch[]
+}
+
+model Batch {
+  id             String     @id @default(cuid())
+  batchCode      String     @unique
+  orderId        String
+  order          Order      @relation(fields: [orderId], references: [id])
+  productName    String
+  currentStage   String     @default("MOLDING")
+  priority       String // "high" | "medium" | "low"
+  glazeType      String?
+  firingTempC    Int?
+  estimatedClayKg Float?
+  estimatedFiringHours Float?
+  quantity       Int
+  deadlineDays   Int?
+  defectCount    Int        @default(0)
+  kilnId         String?
+  scheduledStart DateTime?
+  lastStageChangeAt DateTime @default(now())
+  createdAt      DateTime   @default(now())
+  logs           StageLog[]
+  alerts         Alert[]
+}
+
+model StageLog {
+  id        String   @id @default(cuid())
+  batchId   String
+  batch     Batch    @relation(fields: [batchId], references: [id])
+  stage     String
+  enteredAt DateTime @default(now())
+  note      String?
+}
+
+model Alert {
+  id        String   @id @default(cuid())
+  batchId   String
+  batch     Batch    @relation(fields: [batchId], references: [id])
+  level     String // "info" | "warning" | "critical"
+  message   String
+  source    String // agent/he thong nao raise
+  createdAt DateTime @default(now())
+}
+
+model Kiln {
+  id        String   @id @default(cuid())
+  name      String
+  capacity  Int      @default(1)
+}
+
+model HistoricalBatch {
+  id             String @id @default(cuid())
+  productName    String
+  pattern        String?
+  heightCm       Float?
+  glazeType      String?
+  actualClayKg   Float
+  actualFiringHours Float
+  embedding      Bytes
+  embeddingModel String @default("local-hash-bow-256")
+  createdAt      DateTime @default(now())
+}
+
+model KnowledgeDoc {
+  id        String   @id @default(cuid())
+  title     String
+  sourceUrl String?
+  chunks    KnowledgeChunk[]
+}
+
+model KnowledgeChunk {
+  id         String   @id @default(cuid())
+  docId      String
+  doc        KnowledgeDoc @relation(fields: [docId], references: [id])
+  content    String
+  embedding  Bytes
+  embeddingModel String @default("local-hash-bow-256")
+  chunkIndex Int
+}
