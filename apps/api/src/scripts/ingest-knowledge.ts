@@ -21,16 +21,17 @@ function chunkText(text: string, maxLen = 2000, overlap = 200): string[] {
     let end = Math.min(start + maxLen, text.length);
     if (end < text.length) { const lp = text.lastIndexOf('.', end); if (lp > start + maxLen * 0.5) end = lp + 1; }
     chunks.push(text.slice(start, end).trim());
-    start = end - overlap;
+    const next = end - overlap;
+    start = next > start ? next : end;
   }
   return chunks.filter((c) => c.length > 50);
 }
 
 function parseSourceLine(content: string): { title: string; url: string | null; body: string } {
   const lines = content.split('\n');
-  let title = 'Untitled', url: string | null = null, bodyEnd = lines.length;
+  let title = lines.find((l) => l.startsWith('#'))?.replace(/^#+\s*/, '').trim() || 'Untitled', url: string | null = null, bodyEnd = lines.length;
   for (let i = lines.length - 1; i >= 0; i--) {
-    const m = lines[i].match(/^Nguon:\s*(.+?)\s*-\s*(https?:\/\/\S+)\s*$/i);
+    const m = lines[i].replace(/-+$/, '').trim().match(/^Nguon:\s*(.+?)\s*-\s*(https?:\/\/\S+?)$/i);
     if (m) { title = m[1].trim(); url = m[2].trim(); bodyEnd = i; break; }
   }
   return { title, url, body: lines.slice(0, bodyEnd).join('\n').trim() };

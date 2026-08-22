@@ -94,9 +94,8 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
 }
 
 // ---------- Vector helpers (Bytes <-> Float32, cosine) ----------
-export function vecToBuffer(vec: number[]): Buffer {
-  const f32 = new Float32Array(vec);
-  return Buffer.from(f32.buffer);
+export function vecToBuffer(vec: number[]): Uint8Array {
+  return new Uint8Array(new Float32Array(vec).buffer);
 }
 
 export function bufferToVec(buf: Buffer | Uint8Array, dim: number): number[] {

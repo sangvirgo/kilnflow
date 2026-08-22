@@ -1,0 +1,31 @@
+{
+  "name": "kilnflow",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c magenta,cyan \"npm run start:dev -w apps/api\" \"npm run dev -w apps/web\"",
+    "build:shared": "npm run build -w @kilnflow/shared-types",
+    "build:api": "npm run build -w apps/api",
+    "build:web": "npm run build -w apps/web",
+    "build": "npm run build:shared && npm run build:api && npm run build:web",
+    "db:migrate": "npm run db:migrate -w apps/api",
+    "db:seed": "npm run seed -w apps/api",
+    "test:retry-loop": "npm run test:retry-loop -w apps/api",
+    "smoke": "bash scripts/smoke.sh",
+    "knowledge:ingest": "npm run knowledge:ingest -w apps/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
+  },
+  "allowScripts": {
+    "@prisma/client": true,
+    "@prisma/engines": true,
+    "prisma": true,
+    "esbuild": true
+  }
+}

@@ -33,7 +33,7 @@ export class EmbeddingService implements OnModuleInit {
     return this.provider.embed(texts);
   }
 
-  toBuffer(vec: number[]): Buffer { return vecToBuffer(vec); }
-  fromBuffer(buf: Buffer): number[] { return bufferToVec(buf, this.provider.dim); }
+  toBuffer(vec: number[]): Uint8Array { return vecToBuffer(vec); }
+  fromBuffer(buf: Buffer | Uint8Array): number[] { return bufferToVec(buf, this.provider.dim); }
   similarity(a: number[], b: number[]): number { return cosineSimilarity(a, b); }
 }

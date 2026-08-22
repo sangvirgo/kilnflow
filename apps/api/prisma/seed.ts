@@ -58,7 +58,7 @@ async function main() {
   const vectors = await provider.embed(texts);
   for (let i = 0; i < historical.length; i++) {
     await prisma.historicalBatch.create({
-      data: { ...historical[i], embedding: vecToBuffer(vectors[i]), embeddingModel: provider.modelTag },
+      data: { ...historical[i], embedding: Buffer.from(vecToBuffer(vectors[i])), embeddingModel: provider.modelTag },
     });
   }
   console.log('[seed] historical batches:', historical.length, '(embeddings computed for real)');
