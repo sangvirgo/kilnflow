@@ -25,6 +25,10 @@ async function parseOrder(rawText: string) {
 async function listBatches() {
   return fetch(API + '/batches').then((r) => r.json());
 }
+async function api(pathname: string, method = 'GET', body?: unknown) {
+  const res = await fetch(API + pathname, { method, headers: { 'content-type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
+  return res.json();
+}
 
 async function main() {
   console.log('\n========== PHASE 9.5 — PER-STAGE DURATION ESTIMATION TESTS ==========\n');
