@@ -50,12 +50,18 @@ export type CallbackOutcome =
   | 'severity_prompted'
   | 'severity_saved'
   | 'invalid_severity'
+  | 'claim_saved'
+  | 'need_station'
+  | 'my_batches'
+  | 'my_batches_listed'
   | 'unknown_callback'
   // Phase 8.6
   | 'unauthorized_dm'
   | 'stage_assigned'
   | 'station_listed'
   | 'need_station'
+  | 'my_batches'
+  | 'my_batches_listed'
   | 'my_batches_listed'
   | 'batch_detail'
   | 'dm_advanced'
@@ -190,6 +196,24 @@ export class TelegramListenerService implements OnModuleInit {
       this.logger.log('[TG-DM-CALLBACK] ' + JSON.stringify({ who: worker.displayName, data }));
       if (data.startsWith('pick_stage:')) return this.onStationPicked(cq, worker.telegramUserId, data.slice('pick_stage:'.length));
       if (data.startsWith('my_batch:')) return this.onMyBatchOpened(cq, worker, data.slice('my_batch:'.length));
+      if (data.startsWith('claim:')) return this.onClaimBatch(cq, worker, data.slice('claim:'.length));
+      if (data === 'refresh_my_batches') {
+        if (!worker.assignedStage) {
+          await this.answer(cq, 'Bạn chưa chọn công đoạn.', true);
+          return 'need_station';
+        }
+        const rows = await this.listMyBatches(worker.assignedStage);
+        if (cq.message) {
+          await this.editWithKeyboard(
+            cq.message.chat.id, cq.message.message_id,
+            rows.length
+              ? '📦 Các mẻ đang ở <b>' + this.stationLabel(worker.assignedStage) + '</b>:'
+              : '📭 Vẫn chưa có mẻ ở <b>' + this.stationLabel(worker.assignedStage) + '</b>. Bot sẽ tự nhắn khi có mẻ mới!',
+            rows.length ? rows : [],
+          );
+        }
+        return rows.length ? 'my_batches' : 'my_batches_listed';
+      }
       if (data.startsWith('my_advance:')) {
         const [, batchId, expectedStage] = data.split(':');
         return this.onMyAdvancePressed(cq, worker, batchId, expectedStage);
@@ -584,10 +608,13 @@ export class TelegramListenerService implements OnModuleInit {
     }
     const listed = await this.listMyBatches(worker.assignedStage);
     if (!listed.length) {
-      await this.dmSend(msg.chat.id, '📭 Hiện chưa có mẻ nào ở công đoạn <b>' + this.stationLabel(worker.assignedStage) + '</b>.');
+      await this.dmSend(msg.chat.id,
+        '📭 Hiện <b>chưa có mẻ nào</b> ở công đoạn <b>' + this.stationLabel(worker.assignedStage) +
+        '</b>.\n🔔 Đừng lo — ngay khi có mẻ mới chuyển vào, bot sẽ tự nhắn thông báo cho bạn kèm nút nhận mẻ.',
+        { inline_keyboard: [[{ text: '🔄 Kiểm tra lại', callback_data: 'refresh_my_batches' }]] });
       return 'my_batches_listed';
     }
-    await this.dmSend(msg.chat.id, '📦 Các mẻ đang ở <b>' + this.stationLabel(worker.assignedStage) + '</b> — bấm để mở chi tiết:', { inline_keyboard: listed });
+    await this.dmSend(msg.chat.id, '📦 Các mẻ đang ở <b>' + this.stationLabel(worker.assignedStage) + '</b> — bấm để mở chi tiết & 🙋 nhận mẻ:', { inline_keyboard: listed });
     return 'my_batches';
   }
 
@@ -597,20 +624,62 @@ export class TelegramListenerService implements OnModuleInit {
     const batches = await this.prisma.batch.findMany({
       where: { currentStage: stage }, // stage ∈ 6 công đoạn nên DONE tự loại
       take: 20,
-      select: { id: true, batchCode: true, productName: true, quantity: true, priority: true },
+      select: { id: true, batchCode: true, productName: true, quantity: true, priority: true, claimedByName: true },
     });
     return batches
       .sort((a, b) => (TelegramListenerService.PRIORITY_RANK[a.priority] ?? 1) - (TelegramListenerService.PRIORITY_RANK[b.priority] ?? 1))
       .map((b) => [{
-        text: '#' + b.batchCode + ' · ' + b.productName + ' ×' + b.quantity,
+        text: '#' + b.batchCode + ' · ' + b.productName + ' ×' + b.quantity +
+          (b.claimedByName ? ' · 👤' + b.claimedByName : ' · 🟢 trống'),
         callback_data: 'my_batch:' + b.id,
       }]);
   }
 
+  /**
+   * Phase 8.7 — thợ "nhận mẻ": ghi nhận người phụ trách ngay trên Batch.
+   * Nếu đã có người khác nhận → vẫn cho nhận đè (thực tế xưởng: người vắng phải có người gánh),
+   * nhưng báo rõ để cả hai biết.
+   */
+  private async onClaimBatch(cq: TelegramBot.CallbackQuery, worker: { displayName: string; telegramUserId: string }, batchId: string): Promise<CallbackOutcome> {
+    const b = await this.prisma.batch.findUnique({ where: { id: batchId }, select: { id: true, batchCode: true, claimedByUserId: true, claimedByName: true, currentStage: true } });
+    if (!b) {
+      await this.answer(cq, '❌ Không tìm thấy mẻ.', true);
+      return 'batch_not_found';
+    }
+    if (b.currentStage === 'DONE') {
+      await this.answer(cq, '⚠️ Mẻ đã hoàn thành.', true);
+      return 'done_batch';
+    }
+    const previous = b.claimedByUserId && b.claimedByUserId !== worker.telegramUserId ? b.claimedByName : null;
+    await this.prisma.batch.update({
+      where: { id: batchId },
+      data: { claimedByUserId: worker.telegramUserId, claimedByName: worker.displayName },
+    });
+    this.lastClaim = { batchCode: b.batchCode, workerName: worker.displayName };
+    if (previous) {
+      await this.answer(cq, 'Bạn đã NHẬN ĐÈ mẻ #' + b.batchCode + ' (trước đó: ' + previous + ')', true);
+    } else {
+      await this.answer(cq, '✔ Bạn đã nhận mẻ #' + b.batchCode);
+    }
+    if (cq.message) {
+      await this.dmSend(
+        cq.message.chat.id,
+        '🙋 <b>' + worker.displayName + '</b> đã nhận mẻ <b>#' + b.batchCode + '</b>' +
+        (previous ? '\n<i>(nhận đè từ ' + previous + ')</i>' : '') +
+        '\n📍 Công đoạn: ' + this.stationLabel(b.currentStage) +
+        '\nBấm <b>📦 Mẻ tôi đang làm</b> để thao tác tiếp.',
+      );
+    }
+    return 'claim_saved';
+  }
+
+  /** Lần claim gần nhất (phục vụ kiểm thử). */
+  lastClaim: { batchCode: string; workerName: string } | null = null;
+
   private async onMyBatchOpened(cq: TelegramBot.CallbackQuery, worker: { displayName: string; assignedStage: string | null }, batchId: string): Promise<CallbackOutcome> {
     const b = await this.prisma.batch.findUnique({
       where: { id: batchId },
-      select: { id: true, batchCode: true, productName: true, quantity: true, priority: true, deadlineDays: true, defectCount: true, currentStage: true },
+      select: { id: true, batchCode: true, productName: true, quantity: true, priority: true, deadlineDays: true, defectCount: true, currentStage: true, claimedByName: true },
     });
     if (!b) {
       await this.answer(cq, '❌ Không tìm thấy mẻ.', true);
@@ -622,11 +691,15 @@ export class TelegramListenerService implements OnModuleInit {
       '📍 Công đoạn: <b>' + this.stationLabel(b.currentStage) + '</b>\n' +
       '⚡ Ưu tiên: <b>' + priVn + '</b>\n' +
       '🗓 Hạn giao: ' + (b.deadlineDays != null ? 'còn <b>' + b.deadlineDays + ' ngày</b>' : 'không có') + '\n' +
-      '🔍 Lỗi ghi nhận tới nay: <b>' + b.defectCount + '</b>';
-    const buttons: InlineButton[][] = [[
-      { text: '✅ Hoàn thành bước này', callback_data: 'my_advance:' + b.id + ':' + b.currentStage },
-      { text: '⚠️ Báo lỗi mẻ này', callback_data: 'my_report:' + b.id },
-    ]];
+      '🔍 Lỗi ghi nhận tới nay: <b>' + b.defectCount + '</b>\n' +
+      '👤 Người nhận: <b>' + (b.claimedByName || 'chưa ai — bấm 🙋 để nhận') + '</b>';
+    const buttons: InlineButton[][] = [
+      [
+        { text: '✅ Hoàn thành bước này', callback_data: 'my_advance:' + b.id + ':' + b.currentStage },
+        { text: '⚠️ Báo lỗi mẻ này', callback_data: 'my_report:' + b.id },
+      ],
+      [{ text: b.claimedByName ? '🙋 Nhận đè mẻ này' : '🙋 Nhận mẻ này', callback_data: 'claim:' + b.id }],
+    ];
     await this.answer(cq, 'Mở mẻ #' + b.batchCode);
     if (cq.message) {
       await this.editWithKeyboard(cq.message.chat.id, cq.message.message_id, detail, buttons);

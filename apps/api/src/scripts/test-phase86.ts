@@ -64,6 +64,7 @@ async function main() {
   await mk('TST86-05', 'GLAZING', 'Lo hoa test A');
   await mk('TST86-06', 'GLAZING', 'Bo am test B');
   await mk('TST86-07', 'FIRING', 'Chen su test C');
+  await mk('TST86-08', 'GLAZING', 'Dia test D'); // ở lại GLAZING làm mốc "không được thấy" khi đổi sang FIRING
 
   try {
     // ================= CASE 1 — TÀI KHOẢN CHƯA CẤP QUYỀN =================
@@ -127,6 +128,28 @@ async function main() {
     const bc = await fetch(API + '/telegram/broadcast-last').then((r) => r.json());
     check('GROUP nhận broadcast chuyển stage', !!bc.text && bc.text.includes('TST86-05') && bc.text.includes('chuyển giai đoạn'), bc.text);
 
+    // ================= CASE 3.5 — PING "CÓ MỚI" CHO THỢ PHỤ TRÁCH CÔNG ĐOẠN =================
+    console.log('\nCASE 3.5 · Mẻ chuyển vào công đoạn → thợ phụ trách được DM ping:');
+    // Gán A sang FIRING TRƯỚC, rồi đưa thêm 1 mẻ vào FIRING
+    await dmCallback('pick_stage:FIRING', A.uid, 'tho_a', 700022);
+    const glazing2 = await prisma.batch.findUniqueOrThrow({ where: { batchCode: 'TST86-06' } });
+    const adv2 = await dmCallback('my_advance:' + glazing2.id + ':GLAZING', B.uid, 'tho_b', 700023, '🧾 #TST86-06');
+    check('B advance mẻ thứ 2 sang FIRING', adv2.outcome === 'dm_advanced' || adv2.outcome === 'race_blocked', adv2.outcome);
+    const ping = await fetch(API + '/telegram/station-ping-last').then((r) => r.json());
+    check('Ping bắn cho công đoạn FIRING', ping.stage === 'FIRING', JSON.stringify(ping));
+    check('Ping đúng mẻ vừa chuyển (TST86-06)', ping.batchCode === 'TST86-06', JSON.stringify(ping));
+    check('Thợ A (đang phụ trách FIRING) nhận được ping', ping.workers >= 1, JSON.stringify(ping));
+
+    // ================= CASE 4.5 — 🙋 NHẬN MỀ (claim) =================
+    console.log('\nCASE 4.5 · Thợ nhận mẻ → DB ghi người phụ trách, danh sách hiện 👤:');
+    const claimTarget = await prisma.batch.findUniqueOrThrow({ where: { batchCode: 'TST86-07' } });
+    const claim1 = await dmCallback('claim:' + claimTarget.id, A.uid, 'tho_a', 700050);
+    check('Thợ A nhận mẻ thành công (claim_saved)', claim1.outcome === 'claim_saved', claim1.outcome);
+    const claimedRow = await prisma.batch.findUniqueOrThrow({ where: { batchCode: 'TST86-07' } });
+    check('DB: batch ghi đúng người nhận', claimedRow.claimedByUserId === String(A.uid) && claimedRow.claimedByName === 'Thợ A (test)');
+    const listAfterClaim = await dmMessage('📦 Mẻ tôi đang làm', A.uid, 'tho_a');
+    check('Danh sách A hiển thị 👤 tên người nhận', JSON.stringify(listAfterClaim.buttons || []).includes('👤'), JSON.stringify(listAfterClaim.buttons));
+
     // ================= CASE 4 — ĐỔI CÔNG ĐOẠN GIỮA CHỪNG =================
     console.log('\nCASE 4 · Thợ B đổi từ Tráng men sang Nung lò → danh sách cập nhật:');
     await dmCallback('pick_stage:FIRING', B.uid, 'tho_b', 700030);
@@ -134,9 +157,9 @@ async function main() {
     check('B mở danh sách sau khi đổi (my_batches)', bAfterSwitch.outcome === 'my_batches', bAfterSwitch.outcome);
     const btnB = JSON.stringify(bAfterSwitch.buttons || []);
     check('Giờ B thấy mẻ ở Nung lò (TST86-07)', btnB.includes('TST86-07'), btnB);
-    // TST86-05 đã được advance lên FIRING ở Case 3 nên vẫn đúng khi xuất hiện;
-    // mẻ PHẢI biến mất khỏi danh sách là TST86-06 (vẫn kẹt ở GLAZING)
-    check('Không còn thấy mẻ GLAZING cũ (TST86-06)', !btnB.includes('TST86-06'), btnB);
+    // TST86-05 & TST86-06 đã được advance lên FIRING (Case 3 & 3.5) nên xuất hiện là ĐÚNG;
+    // mẻ PHẢI biến mất khỏi danh sách FIRING là TST86-08 (vẫn kẹt ở GLAZING)
+    check('Không còn thấy mẻ GLAZING cũ (TST86-08)', !btnB.includes('TST86-08'), btnB);
     const dbB = await prisma.authorizedWorker.findUniqueOrThrow({ where: { telegramUserId: String(B.uid) } });
     check('DB: assignedStage đã ghi đè = FIRING', dbB.assignedStage === 'FIRING', dbB.assignedStage);
 
@@ -157,7 +180,7 @@ async function main() {
     // ================= Cleanup =================
     await prisma.pendingReport.deleteMany({});
     await prisma.authorizedWorker.deleteMany({ where: { telegramUserId: { in: [String(A.uid), String(B.uid)] } } });
-    for (const code of ['TST86-05', 'TST86-06', 'TST86-07']) {
+    for (const code of ['TST86-05', 'TST86-06', 'TST86-07', 'TST86-08']) {
       const b = await prisma.batch.findUnique({ where: { batchCode: code } });
       if (b) {
         await prisma.alert.deleteMany({ where: { batchId: b.id } });

@@ -34,6 +34,8 @@ model Batch {
   defectCount    Int        @default(0)
   kilnId         String?    @db.VarChar(30)
   scheduledStart DateTime?
+  claimedByUserId String?   @db.VarChar(30)
+  claimedByName   String?   @db.VarChar(100)
   lastStageChangeAt DateTime @default(now())
   createdAt      DateTime   @default(now())
   logs           StageLog[]

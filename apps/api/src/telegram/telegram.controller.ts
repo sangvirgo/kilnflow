@@ -16,6 +16,12 @@ export class TelegramController {
     return { text: this.telegram.lastGroupBroadcast };
   }
 
+  /** Ping "có mẻ mới vào công đoạn" gần nhất (Phase 8.7). */
+  @Get('station-ping-last')
+  stationPingLast() {
+    return this.telegram.lastStationPing ?? { stage: null, batchCode: null, workers: 0 };
+  }
+
   /** body: { data, userId?, username?, messageId?, messageText?, chatType?: 'group'|'private', chatId? } */
   @Post('test/callback')
   testCallback(@Body() body: { data?: string; userId?: number; username?: string | null; messageId?: number; messageText?: string; chatType?: 'group' | 'private'; chatId?: number | string }) {
