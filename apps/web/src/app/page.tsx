@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { API } from '../lib/api';
 import { BatchDto, AlertDto, STAGES, Stage } from '@kilnflow/shared-types';
 
+const STAGE_INDEX: Record<string, number> = Object.fromEntries(STAGES.map((s, i) => [s, i]));
+
 const STAGE_VN: Record<string, string> = {
   MOLDING: 'Tạo hình',
   DRYING_TRIMMING: 'Phơi khô & Tỉa',
@@ -48,6 +50,9 @@ export default function Dashboard() {
   const [qcBatchId, setQcBatchId] = useState<string | null>(null);
   const [qcCount, setQcCount] = useState('0');
   const [qcNote, setQcNote] = useState('');
+  // ---- Kéo-thả đổi công đoạn (chỉ cho phép cột kế tiếp) ----
+  const [dragging, setDragging] = useState<{ id: string; stage: string } | null>(null);
+  const [overStage, setOverStage] = useState<Stage | null>(null);
 
   const load = async () => {
     try {
@@ -61,14 +66,34 @@ export default function Dashboard() {
 
   useEffect(() => { load(); const t = setInterval(load, 10000); return () => clearInterval(t); }, []);
 
-  const advance = async (id: string) => {
+  const advance = async (id: string, note?: string) => {
     try {
-      const res = await fetch(API + '/batches/' + id + '/stage', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: '{}' });
+      const res = await fetch(API + '/batches/' + id + '/stage', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(note ? { note } : {}) });
       if (!res.ok) {
         const err = await res.json().catch(() => null);
-        setMsg('Không tiến được stage: ' + (err?.message || res.status));
+        setMsg('⚠️ ' + (err?.message || ('HTTP ' + res.status)));
       } else load();
     } catch (e: any) { setMsg('Lỗi tiến stage: ' + e.message); }
+  };
+
+  // ---- Kéo-thả ----
+  const onCardDragStart = (e: React.DragEvent, b: BatchDto) => {
+    if (b.currentStage === 'DONE') { e.preventDefault(); return; }
+    setDragging({ id: b.id, stage: b.currentStage });
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', b.id);
+  };
+  const isValidTarget = (stage: Stage) =>
+    !!dragging && STAGE_INDEX[stage] === STAGE_INDEX[dragging.stage] + 1;
+  const onColumnDragOver = (e: React.DragEvent, stage: Stage) => {
+    if (isValidTarget(stage)) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOverStage(stage); }
+  };
+  const onColumnDrop = (e: React.DragEvent, stage: Stage) => {
+    e.preventDefault();
+    const b = dragging ? batches.find((x) => x.id === dragging.id) : null;
+    setDragging(null); setOverStage(null);
+    if (!b || !isValidTarget(stage)) return;
+    advance(b.id, 'Kéo-thả trên Kanban');
   };
 
   const runScheduler = async () => {
@@ -145,11 +170,27 @@ export default function Dashboard() {
       </div>
 
       {/* Kanban */}
+      <div className='text-xs text-slate-400 mb-2'>💡 Kéo thẻ sang <b>cột bên cạnh</b> để chuyển công đoạn (chỉ cho phép bước kế tiếp — nhảy cóc sẽ bị từ chối).</div>
       <div className='grid grid-cols-7 gap-2.5 mb-8'>
         {STAGES.map((stage) => {
           const list = batches.filter((b) => b.currentStage === stage);
+          const isTarget = isValidTarget(stage);
+          const isOver = overStage === stage && isTarget;
           return (
-            <div key={stage} className='rounded-2xl border border-slate-200 bg-white/70 p-2 min-h-[240px] flex flex-col'>
+            <div
+              key={stage}
+              onDragOver={(e) => onColumnDragOver(e, stage)}
+              onDragLeave={() => setOverStage((cur) => (cur === stage ? null : cur))}
+              onDrop={(e) => onColumnDrop(e, stage)}
+              className={
+                'rounded-2xl border p-2 min-h-[240px] flex flex-col transition-all duration-150 ' +
+                (isOver
+                  ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-300 scale-[1.02]'
+                  : isTarget
+                    ? 'border-dashed border-indigo-400 bg-indigo-50/40'
+                    : 'border-slate-200 bg-white/70')
+              }
+            >
               <div className='flex items-center justify-between mb-2 px-1'>
                 <div className='flex items-center gap-1.5 min-w-0'>
                   <span className={'w-2 h-2 rounded-full shrink-0 ' + (STAGE_DOT[stage] || 'bg-slate-300')}></span>
@@ -158,8 +199,20 @@ export default function Dashboard() {
                 <span className='text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500'>{list.length}</span>
               </div>
               <div className='space-y-2 flex-1'>
-                {list.map((b) => (
-                  <div key={b.id} className='bg-white rounded-xl border border-slate-200 shadow-sm p-2 text-[11px] hover:border-indigo-300 transition-colors'>
+                {list.map((b) => {
+                  const isDragging = dragging?.id === b.id;
+                  return (
+                  <div
+                    key={b.id}
+                    draggable={stage !== 'DONE'}
+                    onDragStart={(e) => onCardDragStart(e, b)}
+                    onDragEnd={() => { setDragging(null); setOverStage(null); }}
+                    title='Kéo sang cột bên cạnh để chuyển công đoạn'
+                    className={
+                      'bg-white rounded-xl border border-slate-200 shadow-sm p-2 text-[11px] hover:border-indigo-300 transition-all cursor-grab active:cursor-grabbing ' +
+                      (isDragging ? 'opacity-40 rotate-2' : '')
+                    }
+                  >
                     <div className='flex items-center justify-between gap-1'>
                       <span className='font-mono font-bold text-slate-700'>#{b.batchCode}</span>
                       <span className={'px-1.5 py-0.5 rounded-md text-[9px] font-extrabold ' + (PRIORITY_BADGE[b.priority] || '')}>
@@ -198,8 +251,9 @@ export default function Dashboard() {
                       </div>
                     )}
                   </div>
-                ))}
-                {list.length === 0 && <div className='text-center text-[10px] text-slate-300 pt-6'>trống</div>}
+                  );
+                })}
+                {list.length === 0 && <div className='text-center text-[10px] text-slate-300 pt-6'>{isTarget ? '⬅ thả vào đây' : 'trống'}</div>}
               </div>
             </div>
           );
