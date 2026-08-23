@@ -7,5 +7,6 @@ import { AgentsModule } from '../agents/agents.module';
   imports: [AgentsModule],
   controllers: [BatchesController],
   providers: [BatchesService],
+  exports: [BatchesService],
 })
 export class BatchesModule {}

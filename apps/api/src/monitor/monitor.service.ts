@@ -33,9 +33,9 @@ export class MonitorService {
         const sourceKey = 'monitor:' + stage;
         const already = b.alerts.some((a) => a.source === sourceKey && a.createdAt.getTime() > b.lastStageChangeAt.getTime());
         if (already) continue;
-        this.logger.warn('Batch ' + b.batchCode + ' tre tai ' + stage + ': ' + Math.round(elapsedMs / 3600_000) + 'h > ' + Math.round(expectedH * OVERMARGIN) + 'h');
+        this.logger.warn('Batch ' + b.batchCode + ' trễ tại ' + stage + ': ' + Math.round(elapsedMs / 3600_000) + 'h > ' + Math.round(expectedH * OVERMARGIN) + 'h');
         await this.prisma.alert.create({
-          data: { batchId: b.id, level: 'warning', source: sourceKey, message: 'Tre tai ' + stage + ': ' + Math.round(elapsedMs / 3600_000) + 'h (du kien toi da ' + Math.round(expectedH * OVERMARGIN) + 'h)' },
+          data: { batchId: b.id, level: 'warning', source: sourceKey, message: 'Trễ tại giai đoạn ' + stage + ': đã ' + Math.round(elapsedMs / 3600_000) + 'h (dự kiến tối đa ' + Math.round(expectedH * OVERMARGIN) + 'h)' },
         });
         await this.telegram.monitorDelay({ batchCode: b.batchCode, currentStage: stage }, expectedH);
         alerted++;

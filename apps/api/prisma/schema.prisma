@@ -94,3 +94,27 @@ model KnowledgeChunk {
   embeddingModel String @default("local-hash-bow-256") @db.VarChar(50)
   chunkIndex Int
 }
+
+/// Phase 8.3.4 — state "đang chờ mô tả lỗi" của luồng /baocao, persist qua restart (KHÔNG dùng biến in-memory).
+model PendingReport {
+  id        String   @id @default(cuid()) @db.VarChar(30)
+  chatId    String   @db.VarChar(30)
+  userId    String   @db.VarChar(30)
+  username  String?  @db.VarChar(100)
+  batchId   String   @db.VarChar(30)
+  severity  String   @db.VarChar(20)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([chatId, userId])
+}
+
+/// Phase 8.6.1 — thợ được cấp phép DM riêng với bot; assignedStage = công đoạn đang phụ trách.
+model AuthorizedWorker {
+  id             String    @id @default(cuid()) @db.VarChar(30)
+  telegramUserId String    @unique @db.VarChar(30)
+  displayName    String    @db.VarChar(100)
+  assignedStage  String?   @db.VarChar(30)
+  menuReady      Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+}

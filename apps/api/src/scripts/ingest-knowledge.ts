@@ -27,12 +27,32 @@ function chunkText(text: string, maxLen = 2000, overlap = 200): string[] {
   return chunks.filter((c) => c.length > 50);
 }
 
+/** Bo dau thanh ngu am goc de so khop "Nguồn"/"Nguon" ma khong lam mat dau cua tieu de. */
+function stripDiacritics(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+}
+
 function parseSourceLine(content: string): { title: string; url: string | null; body: string } {
   const lines = content.split('\n');
-  let title = lines.find((l) => l.startsWith('#'))?.replace(/^#+\s*/, '').trim() || 'Untitled', url: string | null = null, bodyEnd = lines.length;
+  let title = lines.find((l) => l.startsWith('#'))?.replace(/^#+\s*/, '').trim() || 'Không tên', url: string | null = null, bodyEnd = lines.length;
   for (let i = lines.length - 1; i >= 0; i--) {
-    const m = lines[i].replace(/-+$/, '').trim().match(/^Nguon:\s*(.+?)\s*-\s*(https?:\/\/\S+?)$/i);
-    if (m) { title = m[1].trim(); url = m[2].trim(); bodyEnd = i; break; }
+    const rawLine = lines[i].replace(/[-–—]+$/, '').trim();
+    // Guard khong phu thuoc dau tieng Viet: "Nguồn:", "Nguon:", "NGUỒN:"... deu duoc chap nhan
+    if (!/^nguon\s*:/i.test(stripDiacritics(rawLine))) continue;
+    // Tren dong goc (van giu dau): "<tien to> : <tieu de> - <url>"
+    const m = rawLine.match(/^([^:]{1,30}?)\s*:\s*(.+?)\s*[-–—]+\s*(https?:\/\/\S+)\s*$/i);
+    if (m) {
+      title = m[2].trim();
+      url = m[3].trim();
+    } else {
+      const u = rawLine.match(/(https?:\/\/\S+)/);
+      if (u) {
+        url = u[1];
+        title = rawLine.replace(/^[^:]*:\s*/, '').replace(/\s*[-–—]+\s*\S+\s*$/, '').trim() || title;
+      }
+    }
+    bodyEnd = i;
+    break;
   }
   return { title, url, body: lines.slice(0, bodyEnd).join('\n').trim() };
 }

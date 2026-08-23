@@ -15,7 +15,7 @@ export class EstimatorAgent {
   constructor(private prisma: PrismaService, private embeddings: EmbeddingService) {}
 
   async estimate(parsed: ParsedOrder, emit: TraceEmitter): Promise<EstimatorOutput> {
-    emit('📦', 'Dung embedding tim cac me lich su tuong tu...', 'info');
+    emit('📦', 'Đang dùng embedding tìm các mẻ lịch sử tương tự...', 'info', 'estimator');
     const desc = [parsed.product_name, parsed.pattern, parsed.height_cm, parsed.glaze_color ?? parsed.glaze_type]
       .filter((x) => x != null && x !== '').join(' ');
     const qvec = await this.embeddings.embedOne(desc);
@@ -57,7 +57,7 @@ export class EstimatorAgent {
       };
       const validated = EstimatorOutputSchema.safeParse(out);
       if (!validated.success) throw new Error('Estimator output failed its own schema: ' + validated.error.message);
-      emit('✓', 'Tim thay ' + scored.length + ' me tuong tu (sim ' + basis[0].similarity + '..' + basis[basis.length - 1].similarity + ') — dieu chinh uoc luong theo du lieu that.', 'success');
+      emit('✓', 'Tìm thấy ' + scored.length + ' mẻ tương tự (độ giống ' + basis[0].similarity + '..' + basis[basis.length - 1].similarity + ') — điều chỉnh ước lượng theo dữ liệu thật.', 'success', 'estimator');
       return validated.data;
     }
 
@@ -66,7 +66,7 @@ export class EstimatorAgent {
     const clay = Math.round(((h / 10) * 0.6 * parsed.quantity) * 10) / 10;
     let hours = parsed.quantity < 100 ? 8 : parsed.quantity < 300 ? 12 : parsed.quantity < 1000 ? 18 : 26;
     if (parsed.firing_temp_c >= 1280) hours += 4;
-    emit('⚠️', 'Khong co me lich su tuong tu (cold start) — quay lai cong thuc, confidence thap.', 'warn');
+    emit('⚠️', 'Không có mẻ lịch sử tương tự (cold start) — quay lại công thức, độ tin cậy thấp.', 'warn', 'estimator');
     return { estimatedClayKg: clay, estimatedFiringHours: hours, confidence: 'low', method: 'formula', basis: [] };
   }
 }

@@ -9,6 +9,8 @@ export interface RiskContext {
   kilnBacklogHours?: number | null;
   totalKilnCapacity?: number | null;
   pendingBatchCount?: number | null;
+  /** Trung binh actualClayKg cua CAC ME LICH SU TUONG TU (spec 5.3) — null neu khong co du lieu. */
+  historicalAvgClayKg?: number | null;
 }
 
 /**
@@ -38,17 +40,32 @@ export class RiskQcAgent {
       } catch (err: any) { lastErr = err?.message || String(err); }
     }
     // Deterministic fallback — tinh nang van hoat dong khi LLM hong, danh dau ro rang
-    emit('⚠️', 'Risk LLM khong tin cay (' + lastErr.slice(0, 80) + ') — dung bo luat deterministic.', 'warn');
+    emit('⚠️', 'Risk LLM không đáng tin (' + lastErr.slice(0, 80) + ') — dùng bộ luật deterministic.', 'warn', 'risk');
+    return this.deterministicReview(parsed, ctx);
+  }
+
+  /** Danh gia rui ro deterministic (khong goi LLM) — dung de server tu kiem tra lai luc confirm. */
+  quickReview(parsed: any, ctx: RiskContext): RiskReviewOutput {
     return this.deterministicReview(parsed, ctx);
   }
 
   private deterministicReview(parsed: any, ctx: RiskContext): RiskReviewOutput {
     const risks: RiskItem[] = [];
     const gt = String(parsed.glaze_type || '').toLowerCase();
-    if ((gt.includes('stoneware') || gt.includes('porcelain')) && parsed.firing_temp_c < 1200) risks.push({ type: 'temp_glaze_mismatch', severity: 'high', detail: 'Men ' + gt + ' can >=1200°C nhung don chi nung ' + parsed.firing_temp_c + '°C.' });
-    else if (gt.includes('earthenware') && parsed.firing_temp_c > 1150) risks.push({ type: 'temp_glaze_mismatch', severity: 'medium', detail: 'Earthenware thuong <=1150°C nhung don yeu cau ' + parsed.firing_temp_c + '°C.' });
-    if (parsed.deadline_days != null && ctx.kilnBacklogHours != null && parsed.deadline_days <= 7 && ctx.kilnBacklogHours! > parsed.deadline_days * 16) risks.push({ type: 'deadline_tight', severity: 'high', detail: 'Backlog lo ~' + Math.round(ctx.kilnBacklogHours!) + 'h trong khi deadline chi ' + parsed.deadline_days + ' ngay.' });
-    if (!risks.length) risks.push({ type: 'general', severity: 'low', detail: 'Khong phat hien rui ro lon.' });
+    if ((gt.includes('stoneware') || gt.includes('porcelain')) && parsed.firing_temp_c < 1200) risks.push({ type: 'temp_glaze_mismatch', severity: 'high', detail: 'Men "' + gt + '" cần nung ≥1200°C nhưng đơn chỉ yêu cầu ' + parsed.firing_temp_c + '°C.' });
+    else if (gt.includes('earthenware') && parsed.firing_temp_c > 1150) risks.push({ type: 'temp_glaze_mismatch', severity: 'medium', detail: 'Men earthenware thường chỉ nung ≤1150°C nhưng đơn yêu cầu ' + parsed.firing_temp_c + '°C.' });
+    if (parsed.deadline_days != null && ctx.kilnBacklogHours != null && parsed.deadline_days <= 7 && ctx.kilnBacklogHours! > parsed.deadline_days * 16) risks.push({ type: 'deadline_tight', severity: 'high', detail: 'Backlog lò ~' + Math.round(ctx.kilnBacklogHours!) + 'h trong khi deadline chỉ còn ' + parsed.deadline_days + ' ngày.' });
+    if (ctx.historicalAvgClayKg != null && ctx.historicalAvgClayKg! > 0 && parsed.estimated_clay_kg > 0) {
+      const dev = Math.abs(parsed.estimated_clay_kg - ctx.historicalAvgClayKg!) / ctx.historicalAvgClayKg!;
+      if (dev > 0.45) {
+        risks.push({
+          type: 'clay_estimate_outlier',
+          severity: dev > 0.9 ? 'high' : 'medium',
+          detail: 'Lượng đất ước tính ' + Math.round(parsed.estimated_clay_kg) + 'kg lệch ' + Math.round(dev * 100) + '% so với trung bình các mẻ lịch sử tương tự (~' + Math.round(ctx.historicalAvgClayKg!) + 'kg).',
+        });
+      }
+    }
+    if (!risks.length) risks.push({ type: 'general', severity: 'low', detail: 'Không phát hiện rủi ro lớn.' });
     return { risks, recommend_proceed: !risks.some((r) => r.severity === 'high') };
   }
 
@@ -61,7 +78,7 @@ export class RiskQcAgent {
     else severity = 'info';
 
     const fallbackMsg = (severity === 'critical' ? '🚨 ' : severity === 'warning' ? '⚠️ ' : 'ℹ️ ') +
-      'QC Batch #' + input.batchCode + ': ' + input.defectCount + '/' + input.totalQuantity + ' loi (' + Math.round(rate * 1000) / 10 + '%). Ghi chú: ' + (input.note || 'không có');
+      'QC Batch #' + input.batchCode + ': ' + input.defectCount + '/' + input.totalQuantity + ' lỗi (' + Math.round(rate * 1000) / 10 + '%). Ghi chú: ' + (input.note || 'không có');
 
     let message = fallbackMsg;
     try {
@@ -80,6 +97,35 @@ export class RiskQcAgent {
     const validated = QcReportResultSchema.safeParse(out);
     if (!validated.success) throw new Error('QC result failed schema: ' + validated.error.message);
     return validated.data;
+  }
+
+  /**
+   * Phase 8.3.5 — soạn message cảnh báo cho báo lỗi tự do từ Telegram (/baocao).
+   * Severity do NGƯỜI DÙNG chọn trực tiếp (override), không tính theo defect-rate vì
+   * thợ chỉ mô tả bằng lời; LLM chỉ viết câu thông báo tiếng Việt đúng tông.
+   */
+  async qcComposeFreeform(input: { batchCode: string; description: string; severity: 'info' | 'warning' | 'critical'; reporter?: string }): Promise<string> {
+    const fallbackMsg = (input.severity === 'critical' ? '🚨 ' : input.severity === 'warning' ? '⚠️ ' : 'ℹ️ ') +
+      'BÁO LỖI từ Telegram — Batch #' + input.batchCode +
+      (input.reporter ? ' (báo bởi @' + input.reporter + ')' : '') +
+      ': ' + input.description;
+    try {
+      const raw = await this.llm.complete(
+        [
+          { role: 'system', content: QC_MESSAGE_SYSTEM_PROMPT },
+          { role: 'user', content: this.wrapPayload({
+              batchCode: input.batchCode,
+              note: input.description,
+              severity: input.severity,
+              source: 'telegram /baocao',
+            }) + '\nWrite the alert JSON now.' },
+        ],
+        { jsonMode: true, temperature: 0.3, label: 'qc-freeform-message' },
+      );
+      const cand = parseLlmJson<{ message?: unknown }>(raw);
+      if (typeof cand.message === 'string' && cand.message.trim().length > 10) return cand.message.trim();
+    } catch { /* giữ fallback message — không bao giờ fail luồng báo lỗi vì LLM */ }
+    return fallbackMsg;
   }
 
   private wrapPayload(p: unknown): string {

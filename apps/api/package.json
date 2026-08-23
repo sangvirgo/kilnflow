@@ -10,6 +10,7 @@
     "db:push": "prisma db push",
     "seed": "tsx prisma/seed.ts",
     "test:retry-loop": "tsx src/scripts/test-retry-loop.ts",
+    "worker:add": "tsx src/scripts/worker-add.ts",
     "knowledge:ingest": "tsx src/scripts/ingest-knowledge.ts"
   },
   "prisma": {
@@ -23,6 +24,8 @@
     "@nestjs/platform-express": "^11.0.10",
     "@nestjs/schedule": "^5.0.1",
     "@prisma/client": "^6.3.1",
+    "@types/node-telegram-bot-api": "^0.64.15",
+    "node-telegram-bot-api": "^0.67.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "zod": "^3.24.1"

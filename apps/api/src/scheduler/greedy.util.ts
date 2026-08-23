@@ -20,7 +20,7 @@ export function greedySchedule(batches: SchedBatchInput[], kilns: SchedKilnInput
   const delayed: DelayedBatch[] = [];
   for (const b of sorted) {
     if (!slots.length) {
-      delayed.push({ batchCode: b.batchCode, reason: 'Khong co lo nao kha dung.', suggestion: 'Them lo hoac gop me.' });
+      delayed.push({ batchCode: b.batchCode, reason: 'Không còn lò nào khả dụng.', suggestion: 'Bổ sung lò mới hoặc gộp mẻ nung.' });
       continue;
     }
     slots.sort((x, y) => x.freeAt - y.freeAt);
@@ -30,7 +30,7 @@ export function greedySchedule(batches: SchedBatchInput[], kilns: SchedKilnInput
     if (b.deadlineDays != null) {
       const finishBy = now.getTime() + b.deadlineDays * 24 * 3600_000;
       if (start + Math.max(4, b.estimatedFiringHours ?? 12) * 3600_000 > finishBy) {
-        delayed.push({ batchCode: b.batchCode, reason: 'Slot gan nhat bat dau ' + new Date(start).toISOString().slice(0, 16).replace('T', ' ') + ' — vuot han ' + b.deadlineDays + ' ngay.', suggestion: 'Gop nung voi me cung nhiet do, them ca, hoac doi uu tien.' });
+        delayed.push({ batchCode: b.batchCode, reason: 'Slot trống gần nhất bắt đầu ' + new Date(start).toISOString().slice(0, 16).replace('T', ' ') + ' — vượt hạn ' + b.deadlineDays + ' ngày.', suggestion: 'Gộp nung với mẻ cùng nhiệt độ, thêm ca, hoặc nâng ưu tiên.' });
         continue;
       }
     }

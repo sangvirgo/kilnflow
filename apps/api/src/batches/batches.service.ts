@@ -19,18 +19,32 @@ export class BatchesService {
     return rows.map((b) => this.toDto(b));
   }
 
-  async advanceStage(id: string, note?: string): Promise<BatchDto> {
+  /**
+   * Tiến batch sang stage kế tiếp (spec section 3).
+   * @param expectedFrom Phase 8.2 — khi truyền vào, update chỉ thành công nếu currentStage
+   * trong DB VẪN đúng giá trị này ngay lúc chạy (conditional UPDATE nguyên tử) → 2 người
+   * bấm nút gần như cùng lúc thì đúng 1 lần advance, người còn lại nhận lỗi rõ ràng.
+   */
+  async advanceStage(id: string, note?: string, expectedFrom?: Stage): Promise<BatchDto> {
     const batch = await this.prisma.batch.findUnique({ where: { id } });
     if (!batch) throw new NotFoundError('Batch', id);
-    const idx = STAGES.indexOf(batch.currentStage as Stage);
-    if (idx < 0) throw new AppError(500, 'CORRUPT_STAGE', 'Batch ' + batch.batchCode + ' co currentStage khong hop le: ' + batch.currentStage);
-    if (STAGES[idx] === 'DONE') throw new StageTransitionError('Batch ' + batch.batchCode + ' da o DONE — khong the tien tiep.');
+    const idx = STAGES.indexOf((expectedFrom ?? batch.currentStage) as Stage);
+    if (idx < 0) throw new AppError(500, 'CORRUPT_STAGE', 'Batch ' + batch.batchCode + ' có currentStage không hợp lệ: ' + batch.currentStage);
+    if (STAGES[idx] === 'DONE') throw new StageTransitionError('Batch ' + batch.batchCode + ' đã ở DONE — không thể tiến tiếp.');
+    if (expectedFrom && expectedFrom !== batch.currentStage) {
+      // Kiểm tra sớm để báo lỗi thân thiện; chốt hạ vẫn là điều kiện WHERE bên dưới (nguyên tử)
+      throw new StageTransitionError('Mẻ #' + batch.batchCode + ' đã chuyển sang bước khác rồi (' + batch.currentStage + '), vui lòng kiểm tra lại trên dashboard.');
+    }
     const next = STAGES[idx + 1];
-    // (Vi chi cap nhat theo STAGES[idx+1] nen vat ly khong the nhay coc tu UI/API)
-    const updated = await this.prisma.batch.update({
-      where: { id },
+    // Conditional update: chỉ áp dụng nếu currentStage vẫn là from → vật lý không thể double-advance hay nhảy cóc
+    const res = await this.prisma.batch.updateMany({
+      where: { id, currentStage: STAGES[idx] },
       data: { currentStage: next, lastStageChangeAt: new Date() },
     });
+    if (res.count === 0) {
+      throw new StageTransitionError('Mẻ #' + batch.batchCode + ' vừa được người khác chuyển bước trước bạn — hãy tải lại dashboard.');
+    }
+    const updated = await this.prisma.batch.findUniqueOrThrow({ where: { id } });
     await this.prisma.stageLog.create({ data: { batchId: id, stage: next, note: note || null } });
     await this.telegram.stageChanged(updated, STAGES[idx], next);
     return this.toDto(updated);
@@ -40,7 +54,7 @@ export class BatchesService {
     const batch = await this.prisma.batch.findUnique({ where: { id } });
     if (!batch) throw new NotFoundError('Batch', id);
     if (batch.currentStage !== 'QC_PACKING') {
-      throw new StageTransitionError('QC report chi ap dung khi batch o giai doan QC_PACKING (hien tai: ' + batch.currentStage + ').');
+      throw new StageTransitionError('Báo cáo QC chỉ áp dụng khi batch ở giai đoạn QC_PACKING (hiện tại: ' + batch.currentStage + ').');
     }
     const result = await this.riskQc.qcClassify({
       batchCode: batch.batchCode,

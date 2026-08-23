@@ -40,14 +40,14 @@ export class SchedulerAgent {
           notes[0] = 'sanity violations: ' + violations.join('; ');
           continue;
         }
-        emit('✓', 'Scheduler LLM de xuat ' + parsed.data.schedule.length + ' me vao lo, ' + parsed.data.delayed_batches.length + ' me bi tre.', 'success');
+        emit('✓', 'Scheduler LLM đề xuất ' + parsed.data.schedule.length + ' mẻ vào lò, ' + parsed.data.delayed_batches.length + ' mẻ bị trễ.', 'success', 'scheduler');
         return { output: parsed.data, mode: 'llm', notes };
       } catch (err: any) {
         notes[0] = err?.message || String(err);
       }
     }
 
-    emit('⚠️', 'Scheduler LLM khong dat yeu cau (' + (notes[0] || '').slice(0, 90) + ') — chuyen sang thuat toan tham lam deterministic.', 'warn');
+    emit('⚠️', 'Scheduler LLM không đạt yêu cầu (' + (notes[0] || '').slice(0, 90) + ') — chuyển sang thuật toán tham lam deterministic.', 'warn', 'scheduler');
     return { output: greedySchedule(batches, kilns), mode: 'deterministic-fallback', notes };
   }
 

@@ -23,6 +23,7 @@ export class GeminiProvider implements LlmProvider {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': this.apiKey },
       body: JSON.stringify(body),
+      signal: opts.signal,
     });
     if (res.status === 429) throw new LlmRateLimitError({ provider: this.name, status: 429 });
     if (!res.ok) throw new LlmHttpError(res.status, { provider: this.name, body: await res.text().catch(() => '') });

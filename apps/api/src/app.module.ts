@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { LlmModule } from './llm/llm.module';
 import { EmbeddingsModule } from './embeddings/embeddings.module';
 import { TelegramModule } from './telegram/telegram.module';
+import { TelegramListenerModule } from './telegram/telegram-listener.module';
 import { AgentsModule } from './agents/agents.module';
 import { OrdersModule } from './orders/orders.module';
 import { BatchesModule } from './batches/batches.module';
@@ -25,6 +26,7 @@ import { KnowledgeModule } from './knowledge/knowledge.module';
     LlmModule,
     EmbeddingsModule,
     TelegramModule,
+    TelegramListenerModule,
     AgentsModule,
     OrdersModule,
     BatchesModule,

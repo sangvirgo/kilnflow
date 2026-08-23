@@ -16,6 +16,7 @@ export class DeepSeekProvider implements LlmProvider {
         max_tokens: opts.maxOutputTokens ?? 2048,
         ...(opts.jsonMode ? { response_format: { type: 'json_object' } } : {}),
       }),
+      signal: opts.signal,
     });
     if (res.status === 429) throw new LlmRateLimitError({ provider: this.name, status: 429 });
     if (!res.ok) throw new LlmHttpError(res.status, { provider: this.name, body: await res.text().catch(() => '') });

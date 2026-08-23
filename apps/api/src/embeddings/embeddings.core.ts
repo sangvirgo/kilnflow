@@ -50,14 +50,20 @@ export class LocalHashEmbeddingProvider implements EmbeddingProvider {
   }
 }
 
-/** Gemini text-embedding-004 qua REST batchEmbedContents. */
+/** Gemini embedding (gemini-embedding-001) qua REST batchEmbedContents. */
 export class GeminiEmbeddingProvider implements EmbeddingProvider {
   readonly name = 'gemini';
-  readonly modelTag = 'gemini-text-embedding-004';
+  readonly modelTag = 'gemini-embedding-001';
   readonly dim = 768;
-  private endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents';
+  private model = 'gemini-embedding-001';
+  private endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents';
 
-  constructor(private apiKey: string) {}
+  constructor(private apiKey: string, model?: string) {
+    if (model) {
+      this.model = model;
+      this.endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':batchEmbedContents';
+    }
+  }
 
   async embed(texts: string[]): Promise<number[][]> {
     const out: number[][] = [];
@@ -76,8 +82,9 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
           headers: { 'content-type': 'application/json', 'x-goog-api-key': this.apiKey },
           body: JSON.stringify({
             requests: chunk.map((text) => ({
-              model: 'models/text-embedding-004',
+              model: 'models/' + this.model,
               content: { parts: [{ text }] },
+              outputDimensionality: this.dim,
             })),
           }),
         });

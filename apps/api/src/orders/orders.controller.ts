@@ -17,7 +17,7 @@ export class OrdersController {
   @Post('parse')
   parse(@Body() body: { rawText?: string }) {
     const rawText = (body?.rawText || '').trim();
-    if (!rawText) throw new AppError(400, 'EMPTY_INPUT', 'rawText is required.');
+    if (!rawText) throw new AppError(400, 'EMPTY_INPUT', 'Thiếu rawText trong body.');
     return this.orders.preview(rawText);
   }
 
@@ -33,11 +33,11 @@ export class OrdersController {
     const push = (type: string, payload: unknown) =>
       subject.next({ id: String(++seq), type, data: JSON.stringify(payload) });
 
-    const emit: TraceEmitter = (icon: string, message: string, level: 'info' | 'success' | 'warn' | 'error' = 'info') =>
-      push(TRACE_EVENT, { at: new Date().toISOString(), icon, message, level } satisfies TraceEvent);
+    const emit: TraceEmitter = (icon: string, message: string, level: 'info' | 'success' | 'warn' | 'error' = 'info', agent?: string) =>
+      push(TRACE_EVENT, { at: new Date().toISOString(), icon, message, level, agent } satisfies TraceEvent);
 
     (async () => {
-      if (!rawText) throw new AppError(400, 'EMPTY_INPUT', 'Query param ?text= is required.');
+      if (!rawText) throw new AppError(400, 'EMPTY_INPUT', 'Thiếu tham số ?text= trên URL.');
       const preview = await this.orchestrator.runPreview(rawText, emit);
       push(PREVIEW_EVENT, preview);
     })().catch((err: any) => {
@@ -54,7 +54,7 @@ export class OrdersController {
   @Post('confirm')
   confirm(@Body() dto: ConfirmOrderDto & Record<string, unknown>) {
     if (!dto || typeof dto.rawText !== 'string' || !dto.parsed) {
-      throw new AppError(400, 'INVALID_CONFIRM', 'Body phai co rawText va parsed (ket qua preview da duoc review).');
+      throw new AppError(400, 'INVALID_CONFIRM', 'Body phải có rawText và parsed (kết quả preview đã được review).');
     }
     return this.orders.confirm(dto as unknown as ConfirmOrderDto);
   }

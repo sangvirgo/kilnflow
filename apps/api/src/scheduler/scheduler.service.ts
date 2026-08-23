@@ -13,7 +13,7 @@ export class SchedulerService {
 ) {}
 
   async run(emit: TraceEmitter = silentTrace()) {
-    emit('🗓', 'Dang chay Scheduler Agent...', 'info');
+    emit('🗓', 'Đang chạy Scheduler Agent...', 'info', 'scheduler');
     const pending = await this.prisma.batch.findMany({
       where: { currentStage: { not: 'DONE' }, scheduledStart: null },
       select: { batchCode: true, priority: true, deadlineDays: true, estimatedFiringHours: true },
@@ -37,7 +37,7 @@ export class SchedulerService {
       const batch = await this.prisma.batch.findFirst({ where: { batchCode: d.batchCode } });
       if (batch) {
         await this.prisma.alert.create({
-          data: { batchId: batch.id, level: 'warning', source: 'scheduler-agent', message: 'Bi tre: ' + d.reason + ' | Giai phap: ' + d.suggestion },
+          data: { batchId: batch.id, level: 'warning', source: 'scheduler-agent', message: 'Bị trễ: ' + d.reason + ' | Giải pháp: ' + d.suggestion },
         });
       }
     }

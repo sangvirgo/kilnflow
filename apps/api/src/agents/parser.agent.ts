@@ -30,9 +30,9 @@ export class ParserAgent {
           '\nValidation error:\n' + lastError +
           '\nBroken output:\n' + lastBrokenOutput.slice(0, 800) +
           '\nFix the issues and return the FULL corrected JSON object only.';
-        emit('🔁', 'Output sai schema (lan ' + (attempt - 1) + ') — yeu cau LLM tu sua...', 'warn');
+        emit('🔁', 'Output sai schema (lần ' + (attempt - 1) + ') — yêu cầu LLM tự sửa...', 'warn', 'parser');
       } else {
-        emit('🔍', 'Dang phan tich mo ta don hang...', 'info');
+        emit('🔍', 'Đang phân tích mô tả đơn hàng...', 'info', 'parser');
       }
 
       try {
@@ -48,7 +48,7 @@ export class ParserAgent {
           continue;
         }
         const final = this.enforceBusinessRules(parsed.data);
-        emit('✓', 'Parse thanh cong' + (attempt > 1 ? ' sau ' + (attempt - 1) + ' lan tu-sua' : '') + ' — ' + final.product_name + ' x' + final.quantity, 'success');
+        emit('✓', 'Parse thành công' + (attempt > 1 ? ' sau ' + (attempt - 1) + ' lần tự sửa' : '') + ' — ' + final.product_name + ' ×' + final.quantity, 'success', 'parser');
         return final;
       } catch (err: any) {
         // JSON khong parse duoc hoac loi khac o buoc xu ly output

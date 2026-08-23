@@ -70,11 +70,21 @@ export type KnowledgeAnswer = z.infer<typeof KnowledgeAnswerSchema>;
 export const TRACE_EVENT = 'trace';
 export const PREVIEW_EVENT = 'preview';
 export const ERROR_EVENT = 'error';
-export interface TraceEvent { at: string; icon: string; message: string; level: 'info' | 'success' | 'warn' | 'error'; }
+export interface TraceEvent { at: string; icon: string; message: string; level: 'info' | 'success' | 'warn' | 'error'; agent?: string; }
 
 // ---------------- API payloads ----------------
 export interface OrderPreview { rawText: string; parsed: ParsedOrder; estimation: EstimatorOutput; risk: RiskReviewOutput; llmProvider: string; }
-export interface ConfirmOrderDto { rawText: string; parsed: ParsedOrder; riskAcknowledgeOverride: boolean; }
+export interface ConfirmOrderDto {
+  rawText: string;
+  parsed: ParsedOrder;
+  /** Ket qua risk review o buoc preview (client gui len de doi chieu). */
+  riskReview?: RiskReviewOutput | null;
+  /**
+   * true khi nguoi da thay ro rang bao rui ro (recommend_proceed=false) van chap nhan tiep tuc.
+   * Server tu danh gia lai rui ro; khi rui ro cao ma khong co flag nay -> tu choi tao batch.
+   */
+  overrideRisk?: boolean;
+}
 export interface BatchDto {
   id: string; batchCode: string; productName: string; currentStage: Stage; priority: Priority;
   quantity: number; glazeType: string | null; firingTempC: number | null;
