@@ -28,8 +28,7 @@ async function main() {
   await prisma.order.deleteMany();
   await prisma.kiln.deleteMany();
   await prisma.historicalBatch.deleteMany();
-  await prisma.knowledgeChunk.deleteMany();
-  await prisma.knowledgeDoc.deleteMany();
+  // Phase 9: KHONG xoa knowledge o day — ingestion tu quan ly bang cua no.
 
   // ---------- Kilns ----------
   const kilns = await Promise.all([
@@ -56,9 +55,23 @@ async function main() {
   ];
   const texts = historical.map((h) => [h.productName, h.pattern, h.heightCm, h.glazeType].filter((x) => x != null).join(' '));
   const vectors = await provider.embed(texts);
+  // Phase 9 — breakdown thoi gian 6 cong doan: ti le theo do lon thuc te (clay kg + gio nung),
+  // nhat quan voi hang so Monitor o quy mo lo ~50-60kg (Drying ~24-30h, QC ~2-3h...)
+  const r1 = (x: number) => Math.round(x * 10) / 10;
+  const unit = (kg: number, fireH: number) => Math.max(1.5, kg / 10 + fireH / 25); // "quy mo" cua lo
   for (let i = 0; i < historical.length; i++) {
+    const hh = historical[i];
+    const u = unit(hh.actualClayKg, hh.actualFiringHours);
+    const stageDurationsHours = {
+      MOLDING: r1(u * 0.9),
+      DRYING_TRIMMING: r1(u * 4.5),
+      PAINTING: r1(u * 0.8),
+      GLAZING: r1(u * 0.6),
+      FIRING: hh.actualFiringHours,
+      QC_PACKING: r1(u * 0.45),
+    };
     await prisma.historicalBatch.create({
-      data: { ...historical[i], embedding: Buffer.from(vecToBuffer(vectors[i])), embeddingModel: provider.modelTag },
+      data: { ...hh, stageDurationsHours, embedding: Buffer.from(vecToBuffer(vectors[i])), embeddingModel: provider.modelTag },
     });
   }
   console.log('[seed] historical batches:', historical.length, '(embeddings computed for real)');

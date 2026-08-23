@@ -34,6 +34,8 @@ model Batch {
   defectCount    Int        @default(0)
   kilnId         String?    @db.VarChar(30)
   scheduledStart DateTime?
+  /// Phase 9 — uoc luong AI cho 6 cong doan, chot LUC TAO BATCH (khong tinh lai khi xem)
+  stageEstimates Json?
   claimedByUserId String?   @db.VarChar(30)
   claimedByName   String?   @db.VarChar(100)
   lastStageChangeAt DateTime @default(now())
@@ -75,6 +77,8 @@ model HistoricalBatch {
   glazeType      String?  @db.VarChar(100)
   actualClayKg   Float
   actualFiringHours Float
+  /// Phase 9 — breakdown thoi gian tung cong doan: { MOLDING: 6.2, DRYING_TRIMMING: 30, ... }
+  stageDurationsHours Json?
   embedding      Bytes    @db.LongBlob
   embeddingModel String   @default("local-hash-bow-256") @db.VarChar(50)
   createdAt      DateTime @default(now())

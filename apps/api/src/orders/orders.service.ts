@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ParsedOrderSchema, ConfirmOrderDto, RiskReviewOutput } from '@kilnflow/shared-types';
+import { ParsedOrderSchema, ConfirmOrderDto, RiskReviewOutput, EstimatorOutputSchema } from '@kilnflow/shared-types';
 import { OrchestratorService } from '../agents/orchestrator.service';
 import { RiskQcAgent } from '../agents/risk-qc.agent';
 import { PrismaService } from '../prisma/prisma.service';
@@ -40,6 +40,13 @@ export class OrdersService {
 
     const batchCode = await this.nextBatchCode();
 
+    // Phase 9 — chot stageEstimates LUC TAO BATCH (validate Zod, chi nhan khi estimation hop le)
+    let stageEstimates: Record<string, number> | null = null;
+    if (dto.estimation) {
+      const est = EstimatorOutputSchema.safeParse(dto.estimation);
+      if (est.success) stageEstimates = est.data.stageEstimates;
+    }
+
     if (risky) {
       // recommend_proceed=false NHUNG nguoi dung da override -> Alert + Telegram TRUOC khi batch vao san xuat (spec 5.3)
       const risks = clientRisk && clientRisk.risks.length >= serverRisk.risks.length ? clientRisk.risks : serverRisk.risks;
@@ -68,6 +75,7 @@ export class OrdersService {
         estimatedFiringHours: parsed.estimated_firing_hours,
         quantity: parsed.quantity,
         deadlineDays: parsed.deadline_days,
+        ...(stageEstimates ? { stageEstimates } : {}),
       },
     });
     await this.prisma.stageLog.create({ data: { batchId: batch.id, stage: 'MOLDING', note: 'Khởi tạo sau khi người dùng xác nhận' } });

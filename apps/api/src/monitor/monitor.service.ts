@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { STAGES, Stage } from '@kilnflow/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { TelegramService } from '../telegram/telegram.service';
-import { STAGE_EXPECTED_HOURS, OVERMARGIN } from './stage-durations';
+import { OVERDUE_MARGIN, getExpectedStageDuration } from '../common/stage-duration.config';
 
 /**
  * Autonomous Monitor — kiem tra batch bi tre o moi stage.
@@ -25,17 +25,17 @@ export class MonitorService {
     for (const b of batches) {
       checked++;
       const stage = b.currentStage;
-      let expectedH = STAGE_EXPECTED_HOURS[stage] ?? 24;
-      if (stage === 'FIRING' && b.estimatedFiringHours != null) expectedH = Math.max(expectedH, b.estimatedFiringHours);
+      // Nguon su that duy nhat - FIRING tu dong lay estimatedFiringHours cua chinh me do
+      const expectedH = getExpectedStageDuration(stage, b);
       const elapsedMs = now - b.lastStageChangeAt.getTime();
-      const thresholdMs = expectedH * 3600_000 * OVERMARGIN;
+      const thresholdMs = expectedH * 3600_000 * OVERDUE_MARGIN;
       if (elapsedMs > thresholdMs) {
         const sourceKey = 'monitor:' + stage;
         const already = b.alerts.some((a) => a.source === sourceKey && a.createdAt.getTime() > b.lastStageChangeAt.getTime());
         if (already) continue;
-        this.logger.warn('Batch ' + b.batchCode + ' trễ tại ' + stage + ': ' + Math.round(elapsedMs / 3600_000) + 'h > ' + Math.round(expectedH * OVERMARGIN) + 'h');
+        this.logger.warn('Batch ' + b.batchCode + ' trễ tại ' + stage + ': ' + Math.round(elapsedMs / 3600_000) + 'h > ' + Math.round(expectedH * OVERDUE_MARGIN) + 'h');
         await this.prisma.alert.create({
-          data: { batchId: b.id, level: 'warning', source: sourceKey, message: 'Trễ tại giai đoạn ' + stage + ': đã ' + Math.round(elapsedMs / 3600_000) + 'h (dự kiến tối đa ' + Math.round(expectedH * OVERMARGIN) + 'h)' },
+          data: { batchId: b.id, level: 'warning', source: sourceKey, message: 'Trễ tại giai đoạn ' + stage + ': đã ' + Math.round(elapsedMs / 3600_000) + 'h (dự kiến tối đa ' + Math.round(expectedH * OVERDUE_MARGIN) + 'h)' },
         });
         await this.telegram.monitorDelay({ batchCode: b.batchCode, currentStage: stage }, expectedH);
         alerted++;

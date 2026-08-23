@@ -32,10 +32,24 @@ export const EstimateBasisSchema = z.object({
   actualClayKg: z.number(), actualFiringHours: z.number(), similarity: z.number(),
 });
 export type EstimateBasis = z.infer<typeof EstimateBasisSchema>;
+
+/** Phase 9 — ước lượng thời gian cho 6 công đoạn sản xuất (giờ). */
+export const STAGE_DURATION_KEYS = ['MOLDING', 'DRYING_TRIMMING', 'PAINTING', 'GLAZING', 'FIRING', 'QC_PACKING'] as const;
+export const StageDurationMapSchema = z.object(
+  Object.fromEntries(STAGE_DURATION_KEYS.map((k) => [k, z.number().positive()])) as {
+    [K in (typeof STAGE_DURATION_KEYS)[number]]: z.ZodNumber;
+  },
+);
+export type StageDurationMap = z.infer<typeof StageDurationMapSchema>;
+
 export const EstimatorOutputSchema = z.object({
   estimatedClayKg: z.number().positive(), estimatedFiringHours: z.number().positive(),
   confidence: z.enum(['high', 'low']), method: z.enum(['historical', 'formula']),
   basis: z.array(EstimateBasisSchema),
+  // Phase 9 — thời gian từng công đoạn (weighted avg từ RAG, hoặc formula khi cold-start)
+  stageEstimates: StageDurationMapSchema,
+  stageEstimateConfidence: z.enum(['high', 'low']),
+  stageEstimateBasis: z.array(EstimateBasisSchema),
 });
 export type EstimatorOutput = z.infer<typeof EstimatorOutputSchema>;
 
@@ -79,6 +93,8 @@ export interface ConfirmOrderDto {
   parsed: ParsedOrder;
   /** Ket qua risk review o buoc preview (client gui len de doi chieu). */
   riskReview?: RiskReviewOutput | null;
+  /** Phase 9 — estimation tu preview, de luu stageEstimates vao Batch khi confirm. */
+  estimation?: EstimatorOutput | null;
   /**
    * true khi nguoi da thay ro rang bao rui ro (recommend_proceed=false) van chap nhan tiep tuc.
    * Server tu danh gia lai rui ro; khi rui ro cao ma khong co flag nay -> tu choi tao batch.
@@ -91,6 +107,13 @@ export interface BatchDto {
   estimatedClayKg: number | null; estimatedFiringHours: number | null; deadlineDays: number | null;
   defectCount: number; kilnId: string | null; scheduledStart: string | null;
   lastStageChangeAt: string; createdAt: string;
+  /** Phase 9 — progress trong công đoạn hiện tại (nguồn logic chung với Monitor) */
+  expectedStageDurationHours: number;
+  elapsedInStageHours: number;
+  progressPercent: number;
+  isOverdue: boolean;
+  /** Phase 8.7 — thợ đã nhận mẻ (qua DM) */
+  claimedByName?: string | null;
 }
 export interface AlertDto { id: string; batchId: string; batchCode?: string; level: AlertLevel; message: string; source: string; createdAt: string; }
 export interface ApiError { statusCode: number; error: string; message: string; detail?: unknown; }

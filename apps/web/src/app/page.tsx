@@ -33,6 +33,19 @@ const LEVEL_META: Record<string, { icon: string; label: string; cls: string }> =
   info: { icon: 'ℹ️', label: 'THÔNG TIN', cls: 'border-slate-200 bg-white' },
 };
 
+/** Màu progress theo đúng ngưỡng Monitor dùng (130% = trễ). */
+function progressColor(pct: number, overdue: boolean): string {
+  if (overdue || pct > 130) return 'bg-red-500';
+  if (pct >= 80) return 'bg-amber-400';
+  return 'bg-emerald-500';
+}
+function deadlineChip(days: number | null): { text: string; cls: string } | null {
+  if (days == null) return null;
+  if (days <= 3) return { text: `⏰ còn ${days} ngày`, cls: 'bg-red-100 text-red-700 border-red-300 kf-dot-alert' };
+  if (days <= 7) return { text: `⏳ còn ${days} ngày`, cls: 'bg-orange-100 text-orange-700 border-orange-300' };
+  return { text: `hạn ${days} ngày`, cls: 'bg-slate-50 text-slate-500 border-slate-200' };
+}
+
 function timeAgo(iso: string): string {
   const s = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
   if (s < 60) return s + ' giây trước';
@@ -220,9 +233,26 @@ export default function Dashboard() {
                       </span>
                     </div>
                     <div className='font-medium text-slate-600 truncate mt-0.5'>{b.productName}</div>
-                    <div className='text-slate-400 mt-0.5'>×{b.quantity}{b.deadlineDays != null ? ` · hạn ${b.deadlineDays} ngày` : ''}</div>
-                    {(b.kilnId || b.defectCount > 0) && (
+                    {(() => {
+                      const d = deadlineChip(b.deadlineDays);
+                      return d ? <span className={'inline-block mt-0.5 px-1.5 py-0.5 rounded-md border text-[10px] ' + d.cls}>{d.text}</span> : null;
+                    })()}
+                    {/* Progress trong công đoạn — cùng nguồn logic với Monitor (130% = trễ) */}
+                    <div className='mt-1'>
+                      <div className='h-1.5 w-full bg-slate-100 rounded-full overflow-hidden'>
+                        <div
+                          className={'h-full rounded-full transition-all ' + progressColor(b.progressPercent, b.isOverdue) + (b.isOverdue ? ' kf-dot-alert' : '')}
+                          style={{ width: Math.min(100, b.progressPercent) + '%' }}
+                        />
+                      </div>
+                      <div className={'flex justify-between mt-0.5 text-[9.5px] ' + (b.isOverdue ? 'text-red-600 font-bold' : 'text-slate-400')}>
+                        <span>{b.isOverdue ? '🐢 ' : ''}Đã {b.elapsedInStageHours.toFixed(1)}h</span>
+                        <span>/ dự kiến {b.expectedStageDurationHours}h</span>
+                      </div>
+                    </div>
+                    {(b.kilnId || b.defectCount > 0 || b.claimedByName) && (
                       <div className='flex gap-1 mt-1 flex-wrap'>
+                        {b.claimedByName && <span className='px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600 border border-indigo-200'>👤 {b.claimedByName}</span>}
                         {b.kilnId && <span className='px-1.5 py-0.5 rounded-md bg-orange-50 text-orange-600 border border-orange-200'>🔥 lò {b.kilnId.slice(-3)}</span>}
                         {b.defectCount > 0 && <span className='px-1.5 py-0.5 rounded-md bg-red-50 text-red-600 border border-red-200'>✕ {b.defectCount} lỗi</span>}
                       </div>

@@ -25,6 +25,11 @@ const PRIORITY_BADGE: Record<string, string> = {
 };
 const SEVERITY_VN: Record<string, string> = { high: 'cao', medium: 'trung bình', low: 'thấp' };
 
+const STAGE_VN_SHORT: Record<string, string> = {
+  MOLDING: 'Tạo hình', DRYING_TRIMMING: 'Phơi khô & Tỉa', PAINTING: 'Vẽ hoa văn',
+  GLAZING: 'Tráng men', FIRING: 'Nung lò', QC_PACKING: 'Kiểm tra & Đóng gói',
+};
+
 const EXAMPLES = [
   { label: '🟢 Đơn an toàn', text: '200 lọ hoa hoa văn sen, men xanh ngọc, cao 35cm, nung 1280 độ C, giao trong 10 ngày' },
   { label: '🔴 Đơn rủi ro', text: '500 chén sứ tráng men trắng ngà, cao 8cm, cần gấp giao sau 5 ngày, nung 1050 độ' },
@@ -71,7 +76,7 @@ export default function OrderPage() {
       const res = await fetch(API + '/orders/confirm', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ rawText: preview.rawText, parsed: preview.parsed, riskReview: preview.risk, overrideRisk: false }),
+        body: JSON.stringify({ rawText: preview.rawText, parsed: preview.parsed, riskReview: preview.risk, estimation: preview.estimation, overrideRisk: false }),
       });
       if (res.status === 409) {
         const err = await res.json().catch(() => null);
@@ -85,7 +90,7 @@ export default function OrderPage() {
         const retry = await fetch(API + '/orders/confirm', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ rawText: preview.rawText, parsed: preview.parsed, riskReview: preview.risk, overrideRisk: true }),
+          body: JSON.stringify({ rawText: preview.rawText, parsed: preview.parsed, riskReview: preview.risk, estimation: preview.estimation, overrideRisk: true }),
         });
         if (!retry.ok) {
           const e2 = await retry.json().catch(() => null);
@@ -227,6 +232,32 @@ export default function OrderPage() {
                     </tbody>
                   </table>
                 )}
+              </div>
+
+              {/* Phase 9 — ước lượng thời gian từng công đoạn */}
+              <div className={'rounded-xl border p-3 mb-3 ' + (preview.estimation.stageEstimateConfidence === 'high' ? 'border-cyan-200 bg-cyan-50' : 'border-slate-200 bg-slate-50')}>
+                <div className='flex items-center justify-between mb-1.5'>
+                  <span className='text-xs font-bold text-cyan-800'>⏱️ Ước lượng thời gian từng công đoạn</span>
+                  <span className={'text-[11px] font-bold px-2 py-0.5 rounded-full ' + (preview.estimation.stageEstimateConfidence === 'high' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500')}>
+                    {preview.estimation.stageEstimateConfidence === 'high'
+                      ? 'tin cậy CAO · từ ' + preview.estimation.stageEstimateBasis.length + ' mẻ tham chiếu'
+                      : 'tin cậy THẤP · công thức theo số lượng'}
+                  </span>
+                </div>
+                <table className='w-full text-[11px]'>
+                  <tbody>
+                    {Object.entries(preview.estimation.stageEstimates).map(([stage, hours]) => (
+                      <tr key={stage} className='border-t border-white/70 text-slate-600'>
+                        <td className='py-0.5'>{STAGE_VN_SHORT[stage] || stage}</td>
+                        <td className='text-right font-mono font-bold'>≈ {(hours as number).toFixed(1)}h</td>
+                      </tr>
+                    ))}
+                    <tr className='border-t-2 border-cyan-200/70 text-slate-700 font-bold'>
+                      <td className='py-0.5'>Tổng chu kỳ sản xuất</td>
+                      <td className='text-right font-mono'>≈ {(Object.values(preview.estimation.stageEstimates as Record<string, number>).reduce((s, h) => s + h, 0)).toFixed(1)}h</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
 
               <div className={'rounded-xl border p-3 mb-4 ' + (preview.risk.recommend_proceed ? 'border-emerald-200 bg-emerald-50' : 'border-red-300 bg-red-50')}>

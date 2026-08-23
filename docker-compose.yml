@@ -1,5 +1,6 @@
 services:
   mysql:
+    restart: always
     image: mysql:8
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
@@ -17,6 +18,7 @@ services:
       - kilnflow
 
   api:
+    restart: always
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -42,6 +44,7 @@ services:
       - kilnflow
 
   web:
+    restart: always
     build:
       context: .
       dockerfile: apps/web/Dockerfile
