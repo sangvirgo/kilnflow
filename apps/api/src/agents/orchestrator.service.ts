@@ -25,10 +25,24 @@ export class OrchestratorService {
     emit('🚀', 'Orchestrator bắt đầu quy trình 3 agent...', 'info', 'system');
 
     // 1) Parser (self-correction loop bên trong)
-    const parsed = await this.parser.parse(rawText, emit);
+    let parsed = await this.parser.parse(rawText, emit);
 
     // 2) Estimator (RAG tren HistoricalBatch)
     const estimation = await this.estimator.estimate(parsed, emit);
+
+    // 2.5) Estimator TIN CẬY CAO → hiệu chỉnh lại con số Parser đã đoán trước khi Risk duyệt.
+    // Tránh tình huống: Parser đoán 420kg, lịch sử nói ~60kg, Risk lại đi so con số sai.
+    if (estimation.method === 'historical') {
+      const oldClay = Math.round(parsed.estimated_clay_kg * 10) / 10;
+      const oldHours = Math.round(parsed.estimated_firing_hours * 10) / 10;
+      emit('🔧', 'Hiệu chỉnh số liệu Parser bằng dữ liệu thật: đất ' + oldClay + '→' + estimation.estimatedClayKg +
+        'kg · nung ' + oldHours + '→' + estimation.estimatedFiringHours + 'h', 'info', 'estimator');
+      parsed = {
+        ...parsed,
+        estimated_clay_kg: estimation.estimatedClayKg,
+        estimated_firing_hours: estimation.estimatedFiringHours,
+      };
+    }
 
     // 3) Risk review (kem ngu canh backlog lo hien tai + trung binh clay cua me lich su TUONG TU)
     emit('🧪', 'Risk agent kiểm tra men/nhiệt độ, deadline và lượng đất so với dữ liệu lịch sử...', 'info', 'risk');
