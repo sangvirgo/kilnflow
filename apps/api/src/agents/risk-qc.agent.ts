@@ -24,8 +24,6 @@ export class RiskQcAgent {
   constructor(private llm: LlmService) {}
 
   async preProductionReview(parsed: any, ctx: RiskContext, emit: TraceEmitter): Promise<RiskReviewOutput> {
-    const payload = { parsed, ...this.clean(ctx) };
-    const userMsg = this.wrapPayload(payload) + '\nReview this order and return the JSON verdict.';
     let lastErr = '';
     // Log chi tiết 3 nhóm kiểm tra (spec 5.3) — giúp demo nhìn thấy agent "suy nghĩ" gì
     emit('🌡', 'Kiểm tra 1/3 — men "' + (parsed.glaze_type ?? '?') + '" có hợp nhiệt nung ' + parsed.firing_temp_c + '°C?', 'info', 'risk');
@@ -33,6 +31,22 @@ export class RiskQcAgent {
     if (ctx.historicalAvgClayKg != null) {
       emit('🧱', 'Kiểm tra 3/3 — đất ' + Math.round(parsed.estimated_clay_kg) + 'kg vs trung bình mẻ tương tự ~' + Math.round(ctx.historicalAvgClayKg) + 'kg', 'info', 'risk');
     }
+
+    // NGƯỠNG TÍNH TRONG CODE — LLM chỉ được flag khi hint = true (nhất quán với fallback deterministic)
+    const gtLower = String(parsed.glaze_type || '').toLowerCase();
+    const tempGlazeMismatch =
+      ((gtLower.includes('stoneware') || gtLower.includes('porcelain')) && parsed.firing_temp_c < 1200) ||
+      (gtLower.includes('earthenware') && parsed.firing_temp_c > 1150);
+    let clayDeviationPct: number | null = null;
+    if (ctx.historicalAvgClayKg != null && ctx.historicalAvgClayKg! > 0 && parsed.estimated_clay_kg > 0) {
+      clayDeviationPct = Math.round(Math.abs(parsed.estimated_clay_kg - ctx.historicalAvgClayKg!) / ctx.historicalAvgClayKg! * 100);
+    }
+    const deadlineTightByRule = parsed.deadline_days != null &&
+      parsed.deadline_days <= 7 && (ctx.kilnBacklogHours ?? 0) > parsed.deadline_days * 16;
+    emit('📏', 'Bộ luật code: tempMismatch=' + tempGlazeMismatch + ' · clayDev=' + (clayDeviationPct ?? 'n/a') + '% · deadlineTight=' + deadlineTightByRule, 'info', 'risk');
+
+    const payload = { parsed, ...this.clean(ctx), rulesHint: { tempGlazeMismatch, clayDeviationPct, deadlineTightByRule } };
+    const userMsg = this.wrapPayload(payload) + '\nReview this order and return the JSON verdict.';
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const raw = await this.llm.complete(
