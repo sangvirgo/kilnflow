@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   bufferToVec, cosineSimilarity, EmbeddingProvider, GeminiEmbeddingProvider,
@@ -8,6 +8,9 @@ import {
 @Injectable()
 export class EmbeddingService implements OnModuleInit {
   private provider!: EmbeddingProvider;
+  private fallbackProvider = new LocalHashEmbeddingProvider();
+  private readonly logger = new Logger(EmbeddingService.name);
+  private useFallback = false;
 
   constructor(private config: ConfigService) {}
 
@@ -17,7 +20,19 @@ export class EmbeddingService implements OnModuleInit {
     if ((pref === 'gemini' || (pref === 'auto' && !!geminiKey)) && geminiKey) {
       this.provider = new GeminiEmbeddingProvider(geminiKey);
     } else {
-      this.provider = new LocalHashEmbeddingProvider();
+      this.provider = this.fallbackProvider;
+    }
+  }
+
+  private async tryEmbed(texts: string[]): Promise<number[][]> {
+    if (this.useFallback) return this.fallbackProvider.embed(texts);
+    try {
+      return await this.provider.embed(texts);
+    } catch (err: any) {
+      this.logger.warn('Embedding API failed (' + (err?.message || err).slice(0, 80) + ') — switching to local-hash fallback.');
+      this.useFallback = true;
+      this.provider = this.fallbackProvider;
+      return this.fallbackProvider.embed(texts);
     }
   }
 
@@ -25,12 +40,12 @@ export class EmbeddingService implements OnModuleInit {
   get providerName(): string { return this.provider.name; }
 
   async embedOne(text: string): Promise<number[]> {
-    const [vec] = await this.provider.embed([text]);
+    const [vec] = await this.tryEmbed([text]);
     return vec;
   }
 
   async embedMany(texts: string[]): Promise<number[][]> {
-    return this.provider.embed(texts);
+    return this.tryEmbed(texts);
   }
 
   toBuffer(vec: number[]): Uint8Array { return vecToBuffer(vec); }

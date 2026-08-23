@@ -3,7 +3,7 @@ import { LlmCompleteOptions, LlmMessage, LlmProvider } from '../llm.core';
 
 export class GeminiProvider implements LlmProvider {
   readonly name = 'gemini';
-  constructor(private apiKey: string, public readonly model = 'gemini-2.0-flash') {}
+  constructor(private apiKey: string, public readonly model = 'gemini-3.5-flash-lite') {}
 
   async raw(messages: LlmMessage[], opts: LlmCompleteOptions): Promise<string> {
     const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');

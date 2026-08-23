@@ -21,7 +21,7 @@ export class LlmService implements OnModuleInit {
     const pref = this.config.get('llm.provider', 'auto');
     const key = this.config.get('llm.geminiApiKey', '');
     if (pref === 'mock') return new MockLlmProvider();
-    if (key) return new GeminiProvider(key, this.config.get('llm.model', '') || undefined);
+    if (key) return new GeminiProvider(key, this.config.get('llm.model', '') || 'gemini-3.5-flash-lite');
     this.logger.warn('No GEMINI_API_KEY — using MockProvider.');
     return new MockLlmProvider();
   }
