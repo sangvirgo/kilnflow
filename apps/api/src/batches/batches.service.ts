@@ -3,8 +3,9 @@ import { STAGES, BatchDto, Stage } from '@kilnflow/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { TelegramService } from '../telegram/telegram.service';
 import { RiskQcAgent } from '../agents/risk-qc.agent';
+import { EmbeddingService } from '../embeddings/embeddings.service';
 import { StageTransitionError, NotFoundError, AppError } from '../common/errors';
-import { computeStageProgress } from '../common/stage-duration.config';
+import { computeStageProgress, getExpectedStageDuration } from '../common/stage-duration.config';
 
 /** State machine: CHI cho tien dung 1 stage, cam nhay coc (spec section 3). */
 @Injectable()
@@ -13,6 +14,7 @@ export class BatchesService {
     private prisma: PrismaService,
     private telegram: TelegramService,
     private riskQc: RiskQcAgent,
+    private embeddings: EmbeddingService,
   ) {}
 
   async list(): Promise<BatchDto[]> {
@@ -43,6 +45,7 @@ export class BatchesService {
       throw new StageTransitionError('Mẻ #' + batch.batchCode + ' đã chuyển sang bước khác rồi (' + batch.currentStage + '), vui lòng kiểm tra lại trên dashboard.');
     }
     const next = STAGES[idx + 1];
+    const prevChangedAt = batch.lastStageChangeAt; // Phase 9.6 — mốc tính thời gian thực
     // Conditional update: chỉ áp dụng nếu currentStage vẫn là from → vật lý không thể double-advance hay nhảy cóc
     const res = await this.prisma.batch.updateMany({
       where: { id, currentStage: STAGES[idx] },
@@ -52,9 +55,60 @@ export class BatchesService {
       throw new StageTransitionError('Mẻ #' + batch.batchCode + ' vừa được người khác chuyển bước trước bạn — hãy tải lại dashboard.');
     }
     const updated = await this.prisma.batch.findUniqueOrThrow({ where: { id } });
-    await this.prisma.stageLog.create({ data: { batchId: id, stage: next, note: note || null } });
+    // Phase 9.6 — ghi THỜI GIAN THỰC công đoạn vừa hoàn thành (nuôi dữ liệu cho RAG sau này)
+    const durationHours = Math.round(((Date.now() - prevChangedAt.getTime()) / 3_600_000) * 10) / 10;
+    await this.prisma.stageLog.create({
+      data: { batchId: id, stage: next, note: note || null, stageCompleted: STAGES[idx], durationHours },
+    });
     await this.telegram.stageChanged(updated, STAGES[idx], next);
+    // Phase 9.6 — mẻ HOÀN THÀNH → tự động đưa vào kho HistoricalBatch (RAG học từ thực tế)
+    if (next === 'DONE') {
+      try {
+        await this.archiveToHistory(id, updated.batchCode);
+      } catch (err: any) {
+        // Không bao giờ để lỗi archive làm hỏng transition DONE
+        console.error('[archive-to-history] thất bại:', err?.message || err);
+      }
+    }
     return this.toDto(updated);
+  }
+
+  /**
+   * Phase 9.6 — khi mẻ DONE: tạo HistoricalBatch từ số liệu THỰC TẾ
+   * (clay/firing đã dùng + breakdown thời gian từng công đoạn đo được từ StageLog).
+   * Các mẻ sau sẽ RAG tham chiếu luôn cả thời gian từng bước — vòng lặp tự cải thiện.
+   */
+  private async archiveToHistory(batchId: string, batchCode: string): Promise<void> {
+    const b = await this.prisma.batch.findUniqueOrThrow({
+      where: { id: batchId },
+      include: { logs: { orderBy: { enteredAt: 'asc' } } },
+    });
+    // Gom duration theo stageCompleted (bỏ qua stage trùng — lấy lần đo gần nhất)
+    const durations: Record<string, number> = {};
+    for (const log of b.logs) {
+      if (!log.stageCompleted || log.durationHours == null) continue;
+      durations[log.stageCompleted] = Math.round(log.durationHours * 10) / 10;
+    }
+    for (const k of ['MOLDING', 'DRYING_TRIMMING', 'PAINTING', 'GLAZING', 'FIRING', 'QC_PACKING'] as const) {
+      if (!(k in durations)) durations[k] = getExpectedStageDuration(k, b);
+    }
+
+    const desc = [b.productName, b.glazeType].filter(Boolean).join(' ');
+    const vec = await this.embeddings.embedOne(desc || b.productName);
+    await this.prisma.historicalBatch.create({
+      data: {
+        productName: b.productName,
+        pattern: null,
+        heightCm: null,
+        glazeType: b.glazeType,
+        actualClayKg: b.estimatedClayKg ?? 40,
+        actualFiringHours: b.estimatedFiringHours ?? 14,
+        stageDurationsHours: durations,
+        embedding: Buffer.from(this.embeddings.toBuffer(vec)),
+        embeddingModel: this.embeddings.modelTag,
+      },
+    });
+    console.log('[archive] Mẻ #' + batchCode + ' hoàn thành → đã thêm vào kho lịch sử RAG (' + this.embeddings.modelTag + ') với ' + Object.keys(durations).length + ' stage durations');
   }
 
   async qcReport(id: string, input: { defectCount: number; note?: string }) {

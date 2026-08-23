@@ -51,6 +51,9 @@ model StageLog {
   stage     String   @db.VarChar(30)
   enteredAt DateTime @default(now())
   note      String?  @db.Text
+  /// Phase 9.6 — cong doan VUA hoan thanh khi transition nay xay ra + thoi gian thuc no mat
+  stageCompleted String? @db.VarChar(30)
+  durationHours  Float?
 }
 
 model Alert {
