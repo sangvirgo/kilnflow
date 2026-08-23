@@ -53,7 +53,31 @@ A ceramics workshop needs to manage production from order intake through molding
 | **Knowledge** | Answer ceramics questions from internal docs | Embedding retrieval + citation | Graceful "no data" message |
 | **Monitor** | Detect overdue batches autonomously | Threshold-based (expected × 1.3) | Dedup alerts per stage |
 
-## Setup & Run
+## Quick Start with Docker (Recommended)
+
+```bash
+# 1. Copy environment file
+cp .env.example .env
+
+# 2. (Optional) Add your Gemini API key for real LLM responses
+#    Without it, the system runs in Mock mode (deterministic rule-based)
+#    GEMINI_API_KEY=your_key_here
+
+# 3. Start everything
+docker compose up --build
+
+# 4. Open in browser
+#    Web UI:   http://localhost:3000
+#    API:      http://localhost:3001
+```
+
+Docker Compose starts 3 services:
+- **mysql** (MySQL 8) — persisted via Docker volume `mysql_data`
+- **api** (NestJS) — auto-runs migrations + seed on first start, skips on restart
+- **web** (Next.js) — connects to API via Docker network
+
+## Manual Setup (Without Docker)
+## Setup & Run (Manual)
 
 ```bash
 # 1. Install dependencies

@@ -40,7 +40,7 @@ function parseSourceLine(content: string): { title: string; url: string | null; 
 async function main() {
   const provider = pickProvider();
   console.log('[ingest] embedding provider:', provider.modelTag);
-  const kbDir = path.resolve(process.cwd(), '../../knowledge-base');
+  const kbDir = process.env.KNOWLEDGE_BASE_DIR || path.resolve(process.cwd(), 'knowledge-base');
   if (!fs.existsSync(kbDir)) { console.log('[ingest] not found at', kbDir); return; }
   const files = fs.readdirSync(kbDir).filter((f) => f.endsWith('.md'));
   console.log('[ingest] found', files.length, 'markdown files');

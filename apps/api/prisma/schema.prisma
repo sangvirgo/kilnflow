@@ -3,16 +3,13 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
-// Ghi chu: them cot embeddingModel de dam bao seed va query dung chung
-// mot vector-space (gemini vs local-hash khong ho tron voi nhau).
-
 model Order {
-  id          String   @id @default(cuid())
-  rawText     String
+  id          String   @id @default(cuid()) @db.VarChar(30)
+  rawText     String   @db.Text
   parsedJson  Json
   confidence  Float?
   assumptions Json?
@@ -21,21 +18,21 @@ model Order {
 }
 
 model Batch {
-  id             String     @id @default(cuid())
-  batchCode      String     @unique
-  orderId        String
+  id             String     @id @default(cuid()) @db.VarChar(30)
+  batchCode      String     @unique @db.VarChar(20)
+  orderId        String     @db.VarChar(30)
   order          Order      @relation(fields: [orderId], references: [id])
-  productName    String
-  currentStage   String     @default("MOLDING")
-  priority       String // "high" | "medium" | "low"
-  glazeType      String?
+  productName    String     @db.VarChar(200)
+  currentStage   String     @default("MOLDING") @db.VarChar(30)
+  priority       String     @db.VarChar(10)
+  glazeType      String?    @db.VarChar(100)
   firingTempC    Int?
   estimatedClayKg Float?
   estimatedFiringHours Float?
   quantity       Int
   deadlineDays   Int?
   defectCount    Int        @default(0)
-  kilnId         String?
+  kilnId         String?    @db.VarChar(30)
   scheduledStart DateTime?
   lastStageChangeAt DateTime @default(now())
   createdAt      DateTime   @default(now())
@@ -44,56 +41,56 @@ model Batch {
 }
 
 model StageLog {
-  id        String   @id @default(cuid())
-  batchId   String
+  id        String   @id @default(cuid()) @db.VarChar(30)
+  batchId   String   @db.VarChar(30)
   batch     Batch    @relation(fields: [batchId], references: [id])
-  stage     String
+  stage     String   @db.VarChar(30)
   enteredAt DateTime @default(now())
-  note      String?
+  note      String?  @db.Text
 }
 
 model Alert {
-  id        String   @id @default(cuid())
-  batchId   String
+  id        String   @id @default(cuid()) @db.VarChar(30)
+  batchId   String   @db.VarChar(30)
   batch     Batch    @relation(fields: [batchId], references: [id])
-  level     String // "info" | "warning" | "critical"
-  message   String
-  source    String // agent/he thong nao raise
+  level     String   @db.VarChar(20)
+  message   String   @db.Text
+  source    String   @db.VarChar(100)
   createdAt DateTime @default(now())
 }
 
 model Kiln {
-  id        String   @id @default(cuid())
-  name      String
+  id        String   @id @default(cuid()) @db.VarChar(30)
+  name      String   @db.VarChar(200)
   capacity  Int      @default(1)
 }
 
 model HistoricalBatch {
-  id             String @id @default(cuid())
-  productName    String
-  pattern        String?
+  id             String   @id @default(cuid()) @db.VarChar(30)
+  productName    String   @db.VarChar(200)
+  pattern        String?  @db.VarChar(200)
   heightCm       Float?
-  glazeType      String?
+  glazeType      String?  @db.VarChar(100)
   actualClayKg   Float
   actualFiringHours Float
-  embedding      Bytes
-  embeddingModel String @default("local-hash-bow-256")
+  embedding      Bytes    @db.LongBlob
+  embeddingModel String   @default("local-hash-bow-256") @db.VarChar(50)
   createdAt      DateTime @default(now())
 }
 
 model KnowledgeDoc {
-  id        String   @id @default(cuid())
-  title     String
-  sourceUrl String?
+  id        String   @id @default(cuid()) @db.VarChar(30)
+  title     String   @db.VarChar(500)
+  sourceUrl String?  @db.VarChar(2000)
   chunks    KnowledgeChunk[]
 }
 
 model KnowledgeChunk {
-  id         String   @id @default(cuid())
-  docId      String
+  id         String   @id @default(cuid()) @db.VarChar(30)
+  docId      String   @db.VarChar(30)
   doc        KnowledgeDoc @relation(fields: [docId], references: [id])
-  content    String
-  embedding  Bytes
-  embeddingModel String @default("local-hash-bow-256")
+  content    String   @db.Text
+  embedding  Bytes    @db.LongBlob
+  embeddingModel String @default("local-hash-bow-256") @db.VarChar(50)
   chunkIndex Int
 }
