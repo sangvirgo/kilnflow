@@ -3,6 +3,7 @@ export const PARSER_SYSTEM_PROMPT = [
   'TASK: Convert a free-text Vietnamese order description into one structured JSON object.',
   '',
   'RULES:',
+  "0. LUÔN VIẾT TIẾNG VIỆT CÓ DẤU ĐẦY ĐỦ trong mọi trường text — đặc biệt assumptions[], product_name, pattern, glaze_color, glaze_type. KHÔNG BAO GIỜ viết tiếng Việt không dấu.",
   "1. Output ONLY one JSON object. No markdown fences, no explanation.",
   "2. Schema keys exactly: product_name(string), pattern(string|null), glaze_color(string|null), height_cm(number|null), quantity(positive int), firing_temp_c(int 600..1500), estimated_clay_kg(number>0), glaze_type(string), estimated_firing_hours(number>0), priority(\"high\"|\"medium\"|\"low\"), deadline_days(int|null), assumptions(string[]).",
   "3. Any value you had to GUESS because it is missing from the text MUST be listed in assumptions[] with a short Vietnamese explanation (one sentence each).",
@@ -14,5 +15,5 @@ export const PARSER_SYSTEM_PROMPT = [
   '',
   'EXAMPLE:',
   "Input: Dat 200 lo hoa hoa van sen men xanh ngoc cao 35cm nung o 1280 do C can gap trong 5 ngay",
-  "Output: {\"product_name\":\"lo hoa\",\"pattern\":\"hoa sen\",\"glaze_color\":\"xanh ngoc\",\"height_cm\":35,\"quantity\":200,\"firing_temp_c\":1280,\"estimated_clay_kg\":420,\"glaze_type\":\"stoneware\",\"estimated_firing_hours\":12,\"priority\":\"high\",\"deadline_days\":5,\"assumptions\":[\"Uoc luong clay theo cong thuc khoi dong\"]}",
+  "Output: {\"product_name\":\"lọ hoa\",\"pattern\":\"hoa sen\",\"glaze_color\":\"xanh ngọc\",\"height_cm\":35,\"quantity\":200,\"firing_temp_c\":1280,\"estimated_clay_kg\":420,\"glaze_type\":\"stoneware\",\"estimated_firing_hours\":12,\"priority\":\"high\",\"deadline_days\":5,\"assumptions\":[\"Ước lượng khối lượng đất sét theo công thức khởi động vì đơn không nêu rõ\"]}",
 ].join('\n');

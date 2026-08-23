@@ -3,7 +3,7 @@ import { ParsedOrderSchema, ParsedOrder } from '@kilnflow/shared-types';
 import { z } from 'zod';
 import { LlmService } from '../llm/llm.service';
 import { parseLlmJson } from '../llm/llm.utils';
-import { AgentValidationError } from '../common/errors';
+import { AgentValidationError, AppError } from '../common/errors';
 import { TraceEmitter } from './trace';
 import { PARSER_SYSTEM_PROMPT } from './parser.prompts';
 
@@ -55,6 +55,9 @@ export class ParserAgent {
         emit('✓', 'Parse thành công' + (attempt > 1 ? ' sau ' + (attempt - 1) + ' lần tự sửa' : '') + ' — ' + final.product_name + ' ×' + final.quantity, 'success', 'parser');
         return final;
       } catch (err: any) {
+        // Lỗi PROVIDER (key sai, quota, hệ thống) khác lỗi schema — ném ngay để frontend
+        // nhận đúng nguyên nhân (vd 502 LLM_HTTP_ERROR kèm "API key not valid"), không ngụy trang.
+        if (err instanceof AppError && String(err.errorCode).startsWith('LLM_')) throw err;
         // JSON khong parse duoc hoac loi khac o buoc xu ly output
         lastError = err instanceof Error ? err.message : String(err);
         this.logger.warn('parse attempt ' + attempt + ' failed: ' + lastError);
