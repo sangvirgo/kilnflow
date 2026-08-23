@@ -97,7 +97,7 @@ async function main() {
     const oldDto = l1.find((b) => b.batchCode === 'TSTE-OLD');
     check('API trả progress bình thường cho batch cũ', !!oldDto && oldDto.expectedStageDurationHours === 36, oldDto?.expectedStageDurationHours);
     check('elapsed ≈ 1h, không overdue', Math.abs(oldDto.elapsedInStageHours - 1) < 0.3 && !oldDto.isOverdue);
-    const tick = await api('/monitor/tick');
+    const tick = await api('/monitor/tick', 'POST');
     check('Monitor tick không crash với batch cũ', typeof tick.checked === 'number');
 
     // ================= CASE D — 2 batch khác độ phức tạp =================
