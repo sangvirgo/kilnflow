@@ -36,15 +36,19 @@ export class OrdersController {
     const emit: TraceEmitter = (icon: string, message: string, level: 'info' | 'success' | 'warn' | 'error' = 'info', agent?: string) =>
       push(TRACE_EVENT, { at: new Date().toISOString(), icon, message, level, agent } satisfies TraceEvent);
 
-    (async () => {
-      if (!rawText) throw new AppError(400, 'EMPTY_INPUT', 'Thiếu tham số ?text= trên URL.');
-      const preview = await this.orchestrator.runPreview(rawText, emit);
-      push(PREVIEW_EVENT, preview);
-    })().catch((err: any) => {
-      const status = err instanceof AppError ? err.statusCode : 500;
-      const code = err instanceof AppError ? err.errorCode : 'ORCHESTRATION_FAILED';
-      push(ERROR_EVENT, { statusCode: status, error: code, message: err instanceof Error ? err.message : String(err) });
-    }).finally(() => subject.complete());
+    // Phase 8-fix: kickoff SAU khi Nest subscribe vào observable — nếu chạy đồng bộ,
+    // các event đầu (🚀 🔍 📤) phát ra trước subscription sẽ bị mất.
+    setTimeout(() => {
+      (async () => {
+        if (!rawText) throw new AppError(400, 'EMPTY_INPUT', 'Thiếu tham số ?text= trên URL.');
+        const preview = await this.orchestrator.runPreview(rawText, emit);
+        push(PREVIEW_EVENT, preview);
+      })().catch((err: any) => {
+        const status = err instanceof AppError ? err.statusCode : 500;
+        const code = err instanceof AppError ? err.errorCode : 'ORCHESTRATION_FAILED';
+        push(ERROR_EVENT, { statusCode: status, error: code, message: err instanceof Error ? err.message : String(err) });
+      }).finally(() => subject.complete());
+    }, 0);
 
     // Heartbeat giua ket noi song khi agent chuan bi LLM response lau
     const hb = setInterval(() => subject.next({ type: 'ping', data: String(Date.now()) }), 15000);
