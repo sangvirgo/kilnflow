@@ -37,6 +37,7 @@ export class OrchestratorService {
     if (!risk.recommend_proceed) emit('⛔', 'Risk agent KHÔNG khuyến nghị tiếp tục — xem danh sách rủi ro trước khi xác nhận.', 'warn', 'risk');
     else emit('✓', 'Risk check xong — có thể tạo batch sau khi bạn xác nhận.', 'success', 'risk');
 
+    emit('🏁', 'Hoàn tất! Preview đã sẵn sàng — chưa lưu gì vào hệ thống cho đến khi bạn xác nhận.', 'success', 'system');
     return { rawText, parsed, estimation, risk, llmProvider: this.llm.providerName };
   }
 

@@ -30,9 +30,10 @@ export class ParserAgent {
           '\nValidation error:\n' + lastError +
           '\nBroken output:\n' + lastBrokenOutput.slice(0, 800) +
           '\nFix the issues and return the FULL corrected JSON object only.';
-        emit('🔁', 'Output sai schema (lần ' + (attempt - 1) + ') — yêu cầu LLM tự sửa...', 'warn', 'parser');
+        emit('🔁', 'Output sai schema (lần ' + (attempt - 1) + ') — gửi lại lỗi + output hỏng, yêu cầu LLM tự sửa...', 'warn', 'parser');
       } else {
-        emit('🔍', 'Đang phân tích mô tả đơn hàng...', 'info', 'parser');
+        emit('🔍', 'Parser Agent khởi động — đọc ' + rawText.trim().length + ' ký tự mô tả đơn hàng...', 'info', 'parser');
+        emit('📤', 'Gửi prompt (rules + few-shot) tới ' + this.llm.providerName + ', chờ JSON...', 'info', 'parser');
       }
 
       try {
@@ -40,6 +41,7 @@ export class ParserAgent {
           [{ role: 'system', content: PARSER_SYSTEM_PROMPT }, { role: 'user', content: userMsg }],
           { jsonMode: true, temperature: attempt === 1 ? 0.1 : 0, label: 'parser-attempt-' + attempt },
 );
+        if (attempt === 1) emit('📥', 'Nhận phản hồi LLM (' + raw.trim().length + ' ký tự) — đối chiếu schema Zod 12 trường...', 'info', 'parser');
         lastBrokenOutput = raw;
         const candidate = this.normalize(parseLlmJson<unknown>(raw));
         const parsed = ParsedOrderSchema.safeParse(candidate);
@@ -48,6 +50,8 @@ export class ParserAgent {
           continue;
         }
         const final = this.enforceBusinessRules(parsed.data);
+        emit('⚖️', 'Áp dụng luật ưu tiên theo deadline (' + (final.deadline_days ?? 'không có') + ' ngày) → ' + final.priority.toUpperCase(), 'info', 'parser');
+        if (final.assumptions.length > 0) emit('🤔', 'LLM đã tự giả định ' + final.assumptions.length + ' điểm — ghi nhận vào assumptions[]', 'warn', 'parser');
         emit('✓', 'Parse thành công' + (attempt > 1 ? ' sau ' + (attempt - 1) + ' lần tự sửa' : '') + ' — ' + final.product_name + ' ×' + final.quantity, 'success', 'parser');
         return final;
       } catch (err: any) {

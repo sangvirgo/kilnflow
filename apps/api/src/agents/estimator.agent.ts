@@ -15,12 +15,14 @@ export class EstimatorAgent {
   constructor(private prisma: PrismaService, private embeddings: EmbeddingService) {}
 
   async estimate(parsed: ParsedOrder, emit: TraceEmitter): Promise<EstimatorOutput> {
-    emit('📦', 'Đang dùng embedding tìm các mẻ lịch sử tương tự...', 'info', 'estimator');
+    emit('📦', 'Estimator Agent khởi động — chế độ RAG trên kho mẻ lịch sử...', 'info', 'estimator');
     const desc = [parsed.product_name, parsed.pattern, parsed.height_cm, parsed.glaze_color ?? parsed.glaze_type]
       .filter((x) => x != null && x !== '').join(' ');
     const qvec = await this.embeddings.embedOne(desc);
+    emit('🧮', 'Đã tạo vector embedding (' + qvec.length + ' chiều) cho: "' + desc.slice(0, 60) + '"', 'info', 'estimator');
 
     const rows = await this.prisma.historicalBatch.findMany({ where: { embeddingModel: this.embeddings.modelTag } });
+    emit('🔎', 'So cosine similarity với ' + rows.length + ' mẻ lịch sử trong kho...', 'info', 'estimator');
     const K = 3;
     const MIN_SIM = 0.12;
     const scored = rows
@@ -57,7 +59,8 @@ export class EstimatorAgent {
       };
       const validated = EstimatorOutputSchema.safeParse(out);
       if (!validated.success) throw new Error('Estimator output failed its own schema: ' + validated.error.message);
-      emit('✓', 'Tìm thấy ' + scored.length + ' mẻ tương tự (độ giống ' + basis[0].similarity + '..' + basis[basis.length - 1].similarity + ') — điều chỉnh ước lượng theo dữ liệu thật.', 'success', 'estimator');
+      emit('📊', 'Trung bình có trọng số (sim²): đất ≈ ' + out.estimatedClayKg + 'kg · nung ≈ ' + out.estimatedFiringHours + 'h', 'info', 'estimator');
+      emit('✓', 'Tìm thấy ' + scored.length + ' mẻ tương tự (độ giống ' + basis[0].similarity + '..' + basis[basis.length - 1].similarity + ') — ước lượng dựa trên dữ liệu thật.', 'success', 'estimator');
       return validated.data;
     }
 

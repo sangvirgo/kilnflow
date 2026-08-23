@@ -27,6 +27,12 @@ export class RiskQcAgent {
     const payload = { parsed, ...this.clean(ctx) };
     const userMsg = this.wrapPayload(payload) + '\nReview this order and return the JSON verdict.';
     let lastErr = '';
+    // Log chi tiết 3 nhóm kiểm tra (spec 5.3) — giúp demo nhìn thấy agent "suy nghĩ" gì
+    emit('🌡', 'Kiểm tra 1/3 — men "' + (parsed.glaze_type ?? '?') + '" có hợp nhiệt nung ' + parsed.firing_temp_c + '°C?', 'info', 'risk');
+    emit('📅', 'Kiểm tra 2/3 — deadline ' + (parsed.deadline_days ?? '?') + ' ngày vs backlog lò ~' + Math.round(ctx.kilnBacklogHours ?? 0) + 'h (' + (ctx.pendingBatchCount ?? 0) + ' mẻ đang chạy)', 'info', 'risk');
+    if (ctx.historicalAvgClayKg != null) {
+      emit('🧱', 'Kiểm tra 3/3 — đất ' + Math.round(parsed.estimated_clay_kg) + 'kg vs trung bình mẻ tương tự ~' + Math.round(ctx.historicalAvgClayKg) + 'kg', 'info', 'risk');
+    }
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const raw = await this.llm.complete(
@@ -35,7 +41,11 @@ export class RiskQcAgent {
 );
         const candidate = parseLlmJson<unknown>(raw);
         const res = RiskReviewOutputSchema.safeParse(candidate);
-        if (res.success) return res.data;
+        if (res.success) {
+          const highs = res.data.risks.filter((r) => r.severity === 'high').length;
+          emit('🧾', 'Kết luận Risk: ' + res.data.risks.filter((r) => r.type !== 'general').length + ' rủi ro (' + highs + ' mức cao) → recommend_proceed = ' + res.data.recommend_proceed, res.data.recommend_proceed ? 'success' : 'warn', 'risk');
+          return res.data;
+        }
         lastErr = res.error.issues.map((i) => i.path.join('.') + ': ' + i.message).join('; ');
       } catch (err: any) { lastErr = err?.message || String(err); }
     }
