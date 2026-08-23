@@ -46,3 +46,10 @@
 ## Scene 8: Monitor (2:45 - 3:00) [bonus]
 - POST `/monitor/tick` — detect GOM-001 (FIRING for 26h, threshold ~21h)
 - Alert appears in dashboard: "🐢 BATCH TRỄ TIẾN ĐỘ (tự động phát hiện)"
+
+## Scene 5 (bonus): Telegram Interactive — DM cá nhân thợ (1:50 - 2:20)
+- Màn hình điện thoại: DM riêng với bot → persistent keyboard 3 nút
+- Bấm "🧑‍🏭 Công đoạn của tôi" → chọn Tráng men
+- Trên web kéo thẻ 1 mẻ sang Tráng men → điện thoại nhận ngay ping
+  "📥 CÓ MỚI Ở CÔNG ĐOẠN CỦA BẠN" kèm nút [👀 Xem & nhận mẻ này]
+- Bấm nhận → group chung vẫn nhận broadcast song song

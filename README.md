@@ -147,6 +147,16 @@ npm run worker:add -- --id=<telegramUserId> --name="Anh Ba"
 Sau đó trong DM bot: `/start` → bàn phím cố định **🧑‍🏭 Công đoạn · 📦 Mẻ tôi đang làm · ⚠️ Báo lỗi**.
 Trong group: mọi thông báo stage đều kèm nút **✅ Xác nhận hoàn thành bước này** (chống double-advance ở mức SQL).
 
+### 🤖 Bot tương tác — chi tiết (Phase 8 / 8.6 / 8.7)
+
+| Luồng | Cách hoạt động |
+|---|---|
+| ✅ Nút xác nhận trong group | Mỗi thông báo chuyển stage kèm nút; bấm → đối chiếu `currentStage` trong DB (chống double-advance bằng conditional UPDATE nguyên tử), sửa message gốc ghi tên người xác nhận |
+| ⚠️ `/baocao` báo lỗi | Chọn mẻ → chọn mức độ 🟢🟡🔴 → mô tả tự do → tạo Alert. State lưu bảng `PendingReport` (TTL 5 phút, không mất khi restart) |
+| 👤 DM menu cá nhân | Thợ (đã cấp quyền qua `worker:add`) nhắn riêng bot: chọn công đoạn phụ trách → bot **tự ping khi có mẻ mới đổ về đúng công đoạn đó** kèm nút nhận mẻ |
+| 🙋 Nhận mẻ | Ghi nhận người phụ trách trên Batch, danh sách hiện badge 👤, cho phép nhận đè có cảnh báo |
+| 🔐 Bảo mật | Chỉ chat đã cấu hình được điều khiển; người lạ DM bị chặn kèm hướng dẫn ID
+
 ---
 
 ## 🔌 API chính
