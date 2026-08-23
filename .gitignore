@@ -8,3 +8,6 @@ apps/api/prisma/dev.db
 apps/api/prisma/dev.db-journal
 npm-debug.log*
 .DS_Store
+# Tai lieu de bai cua cong ty - khong dua len repo
+GOM_THU_DUC_DE_BAI_TEST_KY_THUAT.pdf
+*.pdf

@@ -29,7 +29,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       PORT: "3001"
-      WEB_ORIGIN: http://localhost:3000
+      WEB_ORIGIN: "*"   # truy cập qua nginx/IP máy chủ — cho mọi origin (demo)
       MONITOR_INTERVAL_MS: "300000"
       MONITOR_ENABLED: "true"
       KNOWLEDGE_BASE_DIR: /app/knowledge-base
@@ -46,9 +46,10 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://api:3001
+        # Gọi API qua chính nginx (same-origin, cổng 80) — không cần mở port 3001 ra ngoài
+        NEXT_PUBLIC_API_URL: /api
     environment:
-      NEXT_PUBLIC_API_URL: http://api:3001
+      NEXT_PUBLIC_API_URL: http://localhost:3001
     ports:
       - "3000:3000"
     depends_on:
