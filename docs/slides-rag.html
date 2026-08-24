@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kilnflow — RAG & AI Pipeline</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; background:#020617; color:#e2e8f0; overflow:hidden; }
+  .slide { position:absolute; inset:0; display:none; flex-direction:column; justify-content:center;
+           padding:60px 90px 80px; animation:fade .45s ease; }
+  .slide.active { display:flex; }
+  @keyframes fade { from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:none;} }
+  h1 { font-size:52px; line-height:1.15; }
+  h2 { font-size:40px; margin-bottom:34px; }
+  .grad { background:linear-gradient(90deg,#818cf8,#e879f9,#fcd34d); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  p, li { font-size:22px; line-height:1.65; color:#cbd5e1; }
+  ul { list-style:none; } li::before { content:'▸ '; color:#818cf8; }
+  li { margin-bottom:14px; }
+  .kicker { text-transform:uppercase; letter-spacing:3px; font-size:13px; font-weight:800; color:#818cf8; margin-bottom:16px; }
+  .card { background:#0f172a; border:1px solid #1e293b; border-radius:16px; padding:26px 30px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+  .num { font-size:44px; font-weight:900; background:linear-gradient(135deg,#818cf8,#e879f9); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .step { position:relative; padding-left:64px; margin-bottom:26px; }
+  .step .n { position:absolute; left:0; top:-4px; width:48px; height:48px; border-radius:14px;
+             background:linear-gradient(135deg,#4f46e5,#a21caf); display:flex; align-items:center; justify-content:center;
+             font-weight:900; font-size:22px; color:#fff; }
+  .step b { color:#fff; font-size:23px; } 
+  code { background:#1e293b; padding:2px 10px; border-radius:8px; font-size:.92em; color:#a5b4fc; }
+  .arrow { font-size:34px; color:#facc15; margin:0 12px; vertical-align:middle; }
+  .bar { position:fixed; bottom:0; left:0; height:5px; background:linear-gradient(90deg,#6366f1,#d946ef); transition:width .3s; z-index:10; }
+  .hud { position:fixed; bottom:18px; right:28px; font-size:14px; color:#64748b; z-index:10; }
+  .brand { position:fixed; bottom:18px; left:28px; font-size:14px; color:#475569; z-index:10; }
+  .navbtns { position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:10; display:flex; gap:10px; }
+  button.nav { background:#1e293b; color:#94a3b8; border:1px solid #334155; width:46px; height:38px; border-radius:10px; cursor:pointer; font-size:17px; }
+  button.nav:hover { background:#334155; color:#fff; }
+  table { border-collapse:collapse; width:100%; margin-top:10px; }
+  th, td { border-bottom:1px solid #1e293b; padding:11px 16px; text-align:left; font-size:19px; }
+  th { color:#818cf8; font-size:15px; text-transform:uppercase; letter-spacing:1px; }
+  td b { color:#fff; }
+</style>
+</head>
+<body>
+
+<!-- SLIDE 1: TITLE -->
+<section class="slide active">
+  <div class="kicker">Kilnflow · Ceramics Manufacturing Pipeline</div>
+  <h1>RAG <span class="grad">&</span> AI Agents<br>trong xưởng gốm thông minh</h1>
+  <p style="margin-top:26px; font-size:25px;">Làm sao để AI <b style="color:#fff">không bịa số</b> mà ước lượng dựa trên<br><span class="grad">dữ liệu sản xuất thật</span> của xưởng?</p>
+  <p style="margin-top:40px; font-size:16px; color:#64748b;">Nguyễn Lưu Tấn Sang — Fresher · Bấm <code>→</code> để bắt đầu</p>
+</section>
+
+<!-- SLIDE 2: VẤN ĐỀ -->
+<section class="slide">
+  <div class="kicker">Vấn đề</div>
+  <h2>LLM giỏi ngôn ngữ… nhưng <span class="grad">bịa số rất chuyên nghiệp</span></h2>
+  <div class="grid2">
+    <div class="card">
+      <p style="font-size:19px; color:#94a3b8;">Hỏi AI:</p>
+      <p style="color:#fff; font-style:italic;">“200 lọ hoa sen cao 35cm thì cần bao nhiêu kg đất sét?”</p>
+      <p style="margin-top:18px; color:#94a3b8; font-size:19px;">AI trả lời:</p>
+      <p style="color:#f87171; font-weight:700;">420kg 😅</p>
+      <p style="margin-top:14px; font-size:18px;">— số “trông hợp lý” nhưng <b>không dựa trên thực tế xưởng đã từng làm.</b></p>
+    </div>
+    <div class="card" style="border-color:#4338ca;">
+      <p style="font-size:19px; color:#94a3b8;">Trong khi kho dữ liệu xưởng có sẵn:</p>
+      <table>
+        <tr><th>Mẻ đã làm</th><th>Thực tế</th></tr>
+        <tr><td>Lọ hoa sen 35cm</td><td><b>74kg / 14h</b></td></tr>
+        <tr><td>Lọ hoa sen 30cm</td><td><b>55kg / 12h</b></td></tr>
+        <tr><td>Lọ hoa lá tre 28cm</td><td><b>47kg / 12h</b></td></tr>
+      </table>
+      <p style="margin-top:16px; font-size:19px;">→ Chỉ cần cho AI <b style="color:#a5b4fc">đọc đúng dữ liệu đó TRƯỚC khi trả lời</b>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 3: RAG LÀ GÌ -->
+<section class="slide">
+  <div class="kicker">Giải pháp</div>
+  <h2>RAG — Retrieval-Augmented <span class="grad">Generation</span></h2>
+  <p style="max-width:900px;">Thay vì hỏi AI bằng tay không (<i>parametric knowledge</i>), ta <b>truy xuất (Retrieve)</b> dữ liệu liên quan từ kho của mình, <b>tái bổ sung (Augment)</b> vào prompt, rồi mới để AI <b>tổng hợp (Generate)</b>:</p>
+  <div style="margin-top:36px; text-align:center; font-size:24px;">
+    Câu hỏi <span class="arrow">→</span>
+    <span style="background:#1e293b; padding:10px 22px; border-radius:12px; border:1px solid #4338ca;">🔎 Tra kho dữ liệu thật</span>
+    <span class="arrow">→</span>
+    <span style="background:#1e293b; padding:10px 22px; border-radius:12px; border:1px solid #4338ca;">📎 Ghép vào prompt</span>
+    <span class="arrow">→</span>
+    <span style="background:#1e293b; padding:10px 22px; border-radius:12px; border:1px solid #4338ca;">🤖 LLM trả lời</span>
+  </div>
+  <div class="grid2" style="margin-top:44px;">
+    <ul>
+      <li>Câu trả lời <b>có căn cứ</b> — dẫn chứng được nguồn</li>
+      <li>Dữ liệu <b>mới/cập nhật</b> không cần train lại model</li>
+      <li>Không đủ dữ liệu → nói <b>“không tìm thấy”</b> thay vì bịa</li>
+    </ul>
+  </div>
+</section>
+
+<!-- SLIDE 4: EMBEDDING + COSINE -->
+<section class="slide">
+  <div class="kicker">Cơ chế cốt lõi</div>
+  <h2>Tìm “giống” bằng <span class="grad">Embedding + Cosine Similarity</span></h2>
+  <div class="grid3" style="margin-bottom:34px;">
+    <div class="card"><div class="num">1</div><p style="margin-top:10px;"><b>Mỗi mô tả mẻ → vector số</b><br>Ví dụ 768 chiều, nắm <i>ý nghĩa</i> chứ không so chữ cái.</p></div>
+    <div class="card"><div class="num">2</div><p style="margin-top:10px;"><b>Cùng chủ đề → cùng hướng</b><br>“men xanh ngọc” ≈ “celadon” dù khác từ.</p></div>
+    <div class="card"><div class="num">3</div><p style="margin-top:10px;"><b>Cosine similarity</b><br>Góc giữa 2 vector: 1 = giống hệt, 0 = chẳng liên quan.</p></div>
+  </div>
+  <div class="card" style="border-color:#4338ca;">
+    <p style="font-size:20px;">Kết quả thực tế khi hỏi <code>"lọ hoa sen 35cm men xanh ngọc"</code> trên kho 12 mẻ:</p>
+    <table>
+      <tr><td>Lọ hoa sen (hoa sen) 35cm</td><td style="text-align:right"><b style="color:#34d399">86%</b> giống</td></tr>
+      <tr><td>Lọ hoa sen (hoa sen) 30cm</td><td style="text-align:right"><b style="color:#34d399">81%</b></td></tr>
+      <tr><td>Lọ hoa lá tre 28cm</td><td style="text-align:right"><b style="color:#fbbf24">71%</b></td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- SLIDE 5: RAG TRONG KILNFLOW -->
+<section class="slide">
+  <div class="kicker">Ứng dụng</div>
+  <h2>RAG chạy ở <span class="grad">3 chỗ</span> trong Kilnflow</h2>
+  <div class="grid3">
+    <div class="card">
+      <div style="font-size:34px;">📦</div>
+      <h3 style="margin:12px 0 8px; color:#fff;">Estimator Agent</h3>
+      <p style="font-size:18px;">Top-3 mẻ tương tự → trung bình có trọng số (sim²) ra <b>kg đất, giờ nung, thời gian từng công đoạn</b>. Không khớp gì → fallback công thức, gắn nhãn tin cậy thấp.</p>
+    </div>
+    <div class="card">
+      <div style="font-size:34px;">💬</div>
+      <h3 style="margin:12px 0 8px; color:#fff;">Knowledge Chatbot</h3>
+      <p style="font-size:18px;">Trả lời kỹ thuật gốm <b>chỉ dựa trên tài liệu nội bộ</b>, trích dẫn <code>[Nguồn N]</code> kèm URL — thiếu dữ liệu thì thẳng thắn nói không.</p>
+    </div>
+    <div class="card" style="border-color:#059669;">
+      <div style="font-size:34px;">♻️</div>
+      <h3 style="margin:12px 0 8px; color:#34d399;">Feedback Loop (9.6)</h3>
+      <p style="font-size:18px;">Mẻ <b>DONE</b> tự động archive vào kho lịch sử kèm thời gian thực đo được → đơn sau ước lượng <b>chính xác hơn</b>. Hệ thống tự dạy chính nó.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 6: AN TOÀN -->
+<section class="slide">
+  <div class="kicker">Tin cậy</div>
+  <h2>Làm sao biết <span class="grad">tin được</span> con số AI đưa ra?</h2>
+  <ul style="margin-top:10px;">
+    <li><b>Confidence hiển thị công khai:</b> HIGH khi có mẻ lịch sử tham chiếu · LOW khi cold-start (dùng công thức)</li>
+    <li><b>Basis minh bạch:</b> preview luôn liệt kê chính xác những mẻ nào được dùng làm cơ sở, giống bao nhiêu %</li>
+    <li><b>Ngưỡng trong code:</b> Risk/QC flag rủi ro theo luật deterministic — LLM chỉ diễn giải, không được quyền bịa rủi ro</li>
+    <li><b>Số sai bị sửa trước khi duyệt:</b> Parser đoán 420kg → Estimator hiệu chỉnh 60.3kg → Risk soi con số cuối</li>
+  </ul>
+  <p style="margin-top:30px; font-size:20px; color:#94a3b8;">💡 Con người vẫn giữ nút phanh: mọi thứ chỉ là <b style="color:#fff">preview</b> đến khi có người bấm xác nhận.</p>
+</section>
+
+<!-- SLIDE 7: DEMO -->
+<section class="slide">
+  <div class="kicker">Demo trực tiếp</div>
+  <h1 style="font-size:46px;">Xem nó <span class="grad">chạy thật</span></h1>
+  <div style="margin-top:36px;" class="grid2">
+    <ul style="font-size:24px;">
+      <li><b>http://13.229.104.126</b> — Landing + Dashboard</li>
+      <li>Phân tích đơn hàng → xem agents làm việc live</li>
+      <li>Kéo-thả Kanban → Telegram ping thợ ngay</li>
+      <li>Chat 💬 hỏi tri thức gốm → trả lời có nguồn</li>
+    </ul>
+  </div>
+  <p style="margin-top:50px; font-size:26px;">Cảm ơn! <span class="grad">Q&A</span> 🏺</p>
+</section>
+
+<div class="bar" id="bar"></div>
+<div class="brand">🏺 Kilnflow</div>
+<div class="hud"><span id="cur">1</span> / <span id="total"></span></div>
+<div class="navbtns">
+  <button class="nav" onclick="go(-1)">←</button>
+  <button class="nav" onclick="go(1)">→</button>
+</div>
+<script>
+const slides=[...document.querySelectorAll('.slide')];let i=0;
+document.getElementById('total').textContent=slides.length;
+function show(){slides.forEach((s,j)=>s.classList.toggle('active',j===i));
+ document.getElementById('cur').textContent=i+1;
+ document.getElementById('bar').style.width=((i+1)/slides.length*100)+'%';}
+function go(d){i=Math.min(slides.length-1,Math.max(0,i+d));show();}
+document.addEventListener('keydown',e=>{if(['ArrowRight','PageDown',' '].includes(e.key))go(1);if(['ArrowLeft','PageUp'].includes(e.key))go(-1);});
+document.addEventListener('click',e=>{if(!e.target.closest('button'))go(1);});
+show();
+</script>
+</body>
+</html>
