@@ -13,6 +13,7 @@ import { BatchesModule } from './batches/batches.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { MonitorModule } from './monitor/monitor.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
+import { CmsModule } from './cms/cms.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { KnowledgeModule } from './knowledge/knowledge.module';
     SchedulerModule,
     MonitorModule,
     KnowledgeModule,
+    CmsModule,
   ],
 })
 export class AppModule {}

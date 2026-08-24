@@ -117,3 +117,47 @@ export interface BatchDto {
 }
 export interface AlertDto { id: string; batchId: string; batchCode?: string; level: AlertLevel; message: string; source: string; createdAt: string; }
 export interface ApiError { statusCode: number; error: string; message: string; detail?: unknown; }
+// ---------------- CMS — nội dung landing page ----------------
+export interface SiteServiceItem { icon: string; title: string; desc: string }
+export interface SiteStatItem { value: string; label: string }
+export interface SiteContent {
+  hero: { badge: string; title: string; highlight: string; subtitle: string; ctaPrimary: string; ctaSecondary: string };
+  stats: SiteStatItem[];
+  services: SiteServiceItem[];
+  about: { title: string; body: string };
+  contact: { phone: string; email: string; address: string };
+}
+
+export const DEFAULT_SITE_CONTENT: SiteContent = {
+  hero: {
+    badge: 'Automation · AI Agents · Realtime',
+    title: 'Xưởng gốm thông minh',
+    highlight: 'điều phối bởi AI',
+    subtitle: 'Từ mô tả đơn hàng tự do tiếng Việt đến quy trình sản xuất 7 công đoạn — AI bóc tách thông số, xếp lò, giám sát trễ và báo cáo Telegram tự động.',
+    ctaPrimary: 'Xem bảng sản xuất',
+    ctaSecondary: 'Phân tích đơn ngay',
+  },
+  stats: [
+    { value: '7', label: 'Công đoạn sản xuất' },
+    { value: '5+1', label: 'AI agents chuyên trách' },
+    { value: '<60s', label: 'Đơn → kế hoạch lò' },
+    { value: '24/7', label: 'Monitor tự động' },
+  ],
+  services: [
+    { icon: '🔍', title: 'Parser Agent', desc: 'Bóc tách đơn hàng tự do thành JSON chuẩn 12 trường, tự kiểm chứng & tự sửa lỗi schema.' },
+    { icon: '📦', title: 'Estimator RAG', desc: 'Ước lượng đất sét, giờ nung và thời gian từng công đoạn từ dữ liệu mẻ lịch sử thật.' },
+    { icon: '🛡️', title: 'Risk/QC Agent', desc: 'Rà soát rủi ro trước sản xuất, phân loại lỗi QC theo ngưỡng nghiệp vụ trong code.' },
+    { icon: '🗓️', title: 'Scheduler Agent', desc: 'Xếp mẻ vào lò theo ưu tiên & deadline, kiểm tra công suất, cảnh báo mẻ trễ.' },
+    { icon: '📲', title: 'Telegram Bot', desc: 'Nút xác nhận công đoạn ngay trong chat, menu cá nhân cho từng thợ, ping khi có việc mới.' },
+    { icon: '📊', title: 'Dashboard realtime', desc: 'Kanban kéo-thả, progress từng mẻ, feed cảnh báo và luồng suy luận AI trực tiếp.' },
+  ],
+  about: {
+    title: 'Vì sao Kilnflow khác biệt?',
+    body: 'AI không bao giờ tự quyết: mọi kết quả đều đi qua validation nghiêm ngặt (Zod), con người luôn giữ bước duyệt cuối trước khi dữ liệu vào sản xuất. Khi LLM sai hoặc lỗi mạng, hệ thống có phương án dự phòng deterministic — xưởng vẫn chạy.',
+  },
+  contact: {
+    phone: '0900 000 000',
+    email: 'contact@kilnflow.vn',
+    address: 'Thủ Đức, TP. Hồ Chí Minh',
+  },
+};

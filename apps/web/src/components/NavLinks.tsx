@@ -3,8 +3,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const LINKS = [
-  { href: '/', label: 'Bảng sản xuất', icon: '🏭' },
+  { href: '/', label: 'Trang chủ', icon: '🏠' },
+  { href: '/dashboard', label: 'Bảng sản xuất', icon: '🏭' },
   { href: '/order', label: 'Đơn hàng mới', icon: '🧾' },
+  { href: '/cms', label: 'CMS', icon: '⚙️' },
 ];
 
 export default function NavLinks() {

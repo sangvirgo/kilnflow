@@ -127,3 +127,10 @@ model AuthorizedWorker {
   menuReady      Boolean   @default(false)
   createdAt      DateTime  @default(now())
 }
+/// Phase 10 — nội dung landing page quản lý qua CMS (key-value, value là JSON SiteContent)
+model SiteContent {
+  id        String   @id @default(cuid()) @db.VarChar(30)
+  key       String   @unique @db.VarChar(50)
+  value     Json
+  updatedAt DateTime @updatedAt
+}
