@@ -64,6 +64,8 @@ export class EstimatorAgent {
       const stageEstimates = Object.fromEntries(
         STAGE_DURATION_KEYS.map((k) => [k, stageW[k].w > 0 ? r1(stageW[k].sum / stageW[k].w) : r1(this.coldStartStages(parsed)[k])]),
       ) as StageDurationMap;
+      // Đảm bảo FIRING nhất quán với estimatedFiringHours (đã tính từ actualFiringHours true)
+      stageEstimates.FIRING = r1(hoursW / wSum);
 
       const out: EstimatorOutput = {
         estimatedClayKg: r1(clayW / wSum),
@@ -92,7 +94,7 @@ export class EstimatorAgent {
     const out2: EstimatorOutput = {
       estimatedClayKg: clay, estimatedFiringHours: hours,
       confidence: 'low', method: 'formula', basis: [],
-      stageEstimates: this.coldStartStages(parsed),
+      stageEstimates: { ...this.coldStartStages(parsed), FIRING: hours },
       stageEstimateConfidence: 'low',
       stageEstimateBasis: [],
     };
