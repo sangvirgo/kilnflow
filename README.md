@@ -6,10 +6,6 @@
 > Hệ thống bên dưới là bài tự làm của em — **Đề 2: Hệ thống Điều phối & Giám sát Quy trình Xưởng Gốm**.
 >
 > 🏗️ **Kiến trúc**: 5 AI Agents (Parser, Estimator, Risk/QC, Scheduler, Knowledge) + 1 Orchestrator, Monorepo NestJS + Next.js, MySQL, Telegram Bot
->
-> 📹 **Video demo**: *(đính kèm khi gửi email)*
->
-> 📝 **Script thuyết trình**: Xem phần *Scene 7 — Demo links* trong `docs/demo-script.md` để thấy đầy đủ flow demo.
 
 ---
 
