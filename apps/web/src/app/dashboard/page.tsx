@@ -66,6 +66,12 @@ export default function Dashboard() {
   // ---- Kéo-thả đổi công đoạn (chỉ cho phép cột kế tiếp) ----
   const [dragging, setDragging] = useState<{ id: string; stage: string } | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
+  // ---- Phase 11: Ghi nhận số liệu thực tế ----
+  const [actBatchId, setActBatchId] = useState<string | null>(null);
+  const [actClay, setActClay] = useState('');
+  const [actHours, setActHours] = useState('');
+  const [actGlaze, setActGlaze] = useState('');
+  const [actNote, setActNote] = useState('');
 
   const load = async () => {
     try {
@@ -133,6 +139,22 @@ export default function Dashboard() {
       setQcBatchId(null); setQcCount('0'); setQcNote('');
       load();
     } catch (e: any) { setMsg('Lỗi gửi báo cáo QC: ' + e.message); }
+  };
+
+  const submitActuals = async (id: string) => {
+    try {
+      const body: any = {};
+      if (actClay) body.actualClayKg = Number(actClay);
+      if (actHours) body.actualFiringHours = Number(actHours);
+      if (actGlaze) body.actualGlazeType = actGlaze;
+      if (actNote) body.noteUsed = actNote;
+      const res = await fetch(API + '/batches/' + id + '/actuals', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || ('HTTP ' + res.status));
+      setMsg('✅ Đã ghi nhận số liệu thực tế — mẻ #' + (data.batchCode || '') + ' đã cập nhật kho lịch sử RAG');
+      setActBatchId(null); setActClay(''); setActHours(''); setActGlaze(''); setActNote('');
+      load();
+    } catch (e: any) { setMsg('Lỗi ghi nhận thực tế: ' + e.message); }
   };
 
   // ---- KPI ----
@@ -278,6 +300,31 @@ export default function Dashboard() {
                         <textarea value={qcNote} onChange={(e) => setQcNote(e.target.value)} rows={2}
                           placeholder='Ghi chú (vd: nứt men...)' className='w-full border rounded-md px-1 py-0.5 resize-none' />
                         <button onClick={() => submitQc(b.id)} className='w-full bg-red-600 text-white rounded-md py-1 hover:bg-red-700'>Gửi báo cáo</button>
+                      </div>
+                    )}
+                    {stage === 'DONE' && (
+                      <button
+                        onClick={() => { setActBatchId(actBatchId === b.id ? null : b.id); setActClay(String(b.estimatedClayKg || '')); setActHours(String(b.estimatedFiringHours || '')); setActGlaze(b.glazeType || ''); setActNote(''); }}
+                        className={'mt-1 w-full text-[10px] font-semibold rounded-lg py-1 transition-colors ' +
+                          (actBatchId === b.id ? 'bg-indigo-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100')}
+                      >
+                        📝 Ghi nhận thực tế
+                      </button>
+                    )}
+                    {stage === 'DONE' && actBatchId === b.id && (
+                      <div className='mt-1 p-1.5 bg-emerald-50 rounded-lg border border-emerald-200 space-y-1'>
+                        <div className='text-[10px] text-emerald-700 font-bold mb-0.5'>Nhập số liệu THỰC TẾ — cập nhật kho RAG</div>
+                        <div className='grid grid-cols-2 gap-1'>
+                          <input type='number' min={0} step={0.1} value={actClay} onChange={(e) => setActClay(e.target.value)}
+                            placeholder='Đất thật (kg)' className='border rounded-md px-1 py-0.5 text-[11px]' />
+                          <input type='number' min={0} step={0.1} value={actHours} onChange={(e) => setActHours(e.target.value)}
+                            placeholder='Giờ nung thật' className='border rounded-md px-1 py-0.5 text-[11px]' />
+                        </div>
+                        <input value={actGlaze} onChange={(e) => setActGlaze(e.target.value)}
+                          placeholder='Men đã dùng' className='w-full border rounded-md px-1 py-0.5 text-[11px]' />
+                        <textarea value={actNote} onChange={(e) => setActNote(e.target.value)} rows={1}
+                          placeholder='Ghi chú (tuỳ chọn)' className='w-full border rounded-md px-1 py-0.5 resize-none text-[11px]' />
+                        <button onClick={() => submitActuals(b.id)} className='w-full bg-emerald-600 text-white rounded-md py-1 hover:bg-emerald-700'>💾 Lưu & học lại</button>
                       </div>
                     )}
                   </div>

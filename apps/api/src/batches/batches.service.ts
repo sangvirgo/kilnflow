@@ -22,10 +22,33 @@ export class BatchesService {
     const now = Date.now();
     return rows.map((b) => ({
       ...this.toDto(b),
-      // Phase 9 — progress công đoạn (cùng nguồn logic với Autonomous Monitor)
       ...computeStageProgress(b.currentStage, b.lastStageChangeAt, now, b),
       claimedByName: b.claimedByName ?? null,
+      actualClayKg: (b as any).actualClayKg ?? null,
+      actualFiringHours: (b as any).actualFiringHours ?? null,
+      actualGlazeType: (b as any).actualGlazeType ?? null,
+      noteUsed: (b as any).noteUsed ?? null,
     }));
+  }
+
+  /** Phase 11 — ghi nhận số liệu thực tế (khi sản xuất xong hoặcduring) */
+  async updateActuals(id: string, data: { actualClayKg?: number; actualFiringHours?: number; actualGlazeType?: string; noteUsed?: string }) {
+    const batch = await this.prisma.batch.findUnique({ where: { id } });
+    if (!batch) throw new NotFoundError('Batch', id);
+    const updated = await this.prisma.batch.update({
+      where: { id },
+      data: {
+        ...(data.actualClayKg != null ? { actualClayKg: data.actualClayKg } : {}),
+        ...(data.actualFiringHours != null ? { actualFiringHours: data.actualFiringHours } : {}),
+        ...(data.actualGlazeType != null ? { actualGlazeType: data.actualGlazeType } : {}),
+        ...(data.noteUsed != null ? { noteUsed: data.noteUsed } : {}),
+      },
+    });
+    // Nếu batch đã DONE + có đủ actuals → cập nhật HistoricalBatch tương ứng (dạy lại RAG)
+    if (batch.currentStage === 'DONE') {
+      try { await this.archiveToHistory(id, updated.batchCode); } catch {}
+    }
+    return this.toDto(updated);
   }
 
   /**
@@ -101,8 +124,8 @@ export class BatchesService {
         pattern: null,
         heightCm: null,
         glazeType: b.glazeType,
-        actualClayKg: b.estimatedClayKg ?? 40,
-        actualFiringHours: b.estimatedFiringHours ?? 14,
+        actualClayKg: (b as any).actualClayKg ?? b.estimatedClayKg ?? 40,
+        actualFiringHours: (b as any).actualFiringHours ?? b.estimatedFiringHours ?? 14,
         stageDurationsHours: durations,
         embedding: Buffer.from(this.embeddings.toBuffer(vec)),
         embeddingModel: this.embeddings.modelTag,
@@ -147,6 +170,10 @@ export class BatchesService {
       lastStageChangeAt: b.lastStageChangeAt.toISOString(), createdAt: b.createdAt.toISOString(),
       expectedStageDurationHours: 0, elapsedInStageHours: 0, progressPercent: 0, isOverdue: false,
       claimedByName: b.claimedByName ?? null,
+      actualClayKg: (b as any).actualClayKg ?? null,
+      actualFiringHours: (b as any).actualFiringHours ?? null,
+      actualGlazeType: (b as any).actualGlazeType ?? null,
+      noteUsed: (b as any).noteUsed ?? null,
     };
   }
 }

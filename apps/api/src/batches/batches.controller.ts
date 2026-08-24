@@ -14,6 +14,16 @@ export class BatchesController {
     return this.batches.advanceStage(id, body?.note);
   }
 
+  /** Phase 11 — ghi nhận số liệu thực tế khi sản xuất/hoàn thành */
+  @Patch('batches/:id/actuals')
+  updateActuals(@Param('id') id: string, @Body() body: { actualClayKg?: number; actualFiringHours?: number; actualGlazeType?: string; noteUsed?: string }) {
+    if (body.actualClayKg != null && (typeof body.actualClayKg !== 'number' || body.actualClayKg < 0))
+      throw new AppError(400, 'INVALID_INPUT', 'actualClayKg phải là số ≥ 0');
+    if (body.actualFiringHours != null && (typeof body.actualFiringHours !== 'number' || body.actualFiringHours < 0))
+      throw new AppError(400, 'INVALID_INPUT', 'actualFiringHours phải là số ≥ 0');
+    return this.batches.updateActuals(id, body);
+  }
+
   @Post('batches/:id/qc-report')
   qcReport(@Param('id') id: string, @Body() body: { defectCount?: number; note?: string }) {
     const defectCount = Number(body?.defectCount);

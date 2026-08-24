@@ -39,6 +39,7 @@ export default function OrderPage() {
   const [text, setText] = useState('');
   const [traces, setTraces] = useState<TraceEvent[]>([]);
   const [preview, setPreview] = useState<OrderPreview | null>(null);
+  const [edited, setEdited] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [confirmed, setConfirmed] = useState(false);
@@ -57,9 +58,8 @@ export default function OrderPage() {
       setTraces((prev) => [...prev, e]);
     });
     es.addEventListener('preview', (ev) => {
-      setPreview(JSON.parse((ev as MessageEvent).data));
-      setLoading(false);
-      es.close();
+      const p: OrderPreview = JSON.parse((ev as MessageEvent).data);
+      setPreview(p); setEdited({...p.parsed}); setLoading(false); es.close();
     });
     es.addEventListener('error', (ev) => {
       const data = (ev as MessageEvent).data ? JSON.parse((ev as MessageEvent).data) : null;
@@ -76,7 +76,7 @@ export default function OrderPage() {
       const res = await fetch(API + '/orders/confirm', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ rawText: preview.rawText, parsed: preview.parsed, riskReview: preview.risk, estimation: preview.estimation, overrideRisk: false }),
+        body: JSON.stringify({ rawText: preview.rawText, parsed: edited, riskReview: preview.risk, estimation: preview.estimation, overrideRisk: false }),
       });
       if (res.status === 409) {
         const err = await res.json().catch(() => null);
@@ -185,14 +185,22 @@ export default function OrderPage() {
               </div>
 
               <div className='grid grid-cols-2 md:grid-cols-3 gap-2 mb-4'>
-                {Object.entries(preview.parsed)
+                {Object.entries(edited)
                   .filter(([k]) => k !== 'assumptions')
                   .map(([k, v]) => (
-                    <div key={k} className={'rounded-xl border p-2.5 ' + (k === 'priority' ? PRIORITY_BADGE[String(v)] || 'border-slate-200' : 'border-slate-200 bg-slate-50/60')}>
-                      <div className='text-[10px] uppercase tracking-wide text-slate-400 font-bold'>{FIELD_VN[k] || k}</div>
-                      <div className={'text-sm font-bold mt-0.5 truncate ' + (v == null ? 'text-slate-300' : '')}>
-                        {v == null ? '—' : String(v)}
-                      </div>
+                    <div key={k} className={'rounded-xl border p-2 ' + (k === 'priority' ? (PRIORITY_BADGE[String(edited.priority)] || 'border-slate-200') : 'border-slate-200 bg-slate-50/60')}>
+                      <div className='text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-0.5'>{FIELD_VN[k] || k}</div>
+                      <input
+                        type={typeof v === 'number' ? 'number' : 'text'}
+                        step={typeof v === 'number' && !Number.isInteger(v) ? '0.1' : undefined}
+                        value={v == null ? '' : String(v)}
+                        placeholder='—'
+                        onChange={(e) => {
+                          const val = typeof v === 'number' ? (e.target.value === '' ? null : Number(e.target.value)) : (e.target.value || null);
+                          setEdited((prev) => ({ ...prev, [k]: val }));
+                        }}
+                        className='w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm font-bold focus:ring-1 focus:ring-indigo-400 outline-none'
+                      />
                     </div>
                   ))}
               </div>

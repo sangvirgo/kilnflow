@@ -38,6 +38,11 @@ model Batch {
   stageEstimates Json?
   claimedByUserId String?   @db.VarChar(30)
   claimedByName   String?   @db.VarChar(100)
+  /// Phase 11 — số liệu THỰC TẾ người dùng nhập khi sản xuất/hoàn thành (khác với estimated khi tạo)
+  actualClayKg      Float?
+  actualFiringHours Float?
+  actualGlazeType   String?   @db.VarChar(100)
+  noteUsed          String?   @db.Text
   lastStageChangeAt DateTime @default(now())
   createdAt      DateTime   @default(now())
   logs           StageLog[]

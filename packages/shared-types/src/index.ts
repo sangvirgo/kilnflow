@@ -114,6 +114,11 @@ export interface BatchDto {
   isOverdue: boolean;
   /** Phase 8.7 — thợ đã nhận mẻ (qua DM) */
   claimedByName?: string | null;
+  // Phase 11 — số liệu THỰC TẾ người dùng ghi nhận khi sản xuất/hoàn thành
+  actualClayKg: number | null;
+  actualFiringHours: number | null;
+  actualGlazeType: string | null;
+  noteUsed: string | null;
 }
 export interface AlertDto { id: string; batchId: string; batchCode?: string; level: AlertLevel; message: string; source: string; createdAt: string; }
 export interface ApiError { statusCode: number; error: string; message: string; detail?: unknown; }
