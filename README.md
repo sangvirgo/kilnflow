@@ -1,3 +1,18 @@
+**Demo trực tuyến:** 👉 **https://task.tansang.dpdns.org/**
+
+> Kính gửi quý anh/chị evaluator,
+>
+> Em là Nguyễn Lưu Tấn Sang, ứng tuyển vị trí **Software Engineer Fresher** tại Gốm Thủ Đức.
+> Hệ thống bên dưới là bài tự làm của em — **Đề 2: Hệ thống Điều phối & Giám sát Quy trình Xưởng Gốm**.
+>
+> 🏗️ **Kiến trúc**: 5 AI Agents (Parser, Estimator, Risk/QC, Scheduler, Knowledge) + 1 Orchestrator, Monorepo NestJS + Next.js, MySQL, Telegram Bot
+>
+> 📹 **Video demo**: *(đính kèm khi gửi email)*
+>
+> 📝 **Script thuyết trình**: Xem phần *Scene 7 — Demo links* trong `docs/demo-script.md` để thấy đầy đủ flow demo.
+
+---
+
 # 🏺 Kilnflow — Hệ thống Điều phối & Giám sát Xưởng Gốm bằng AI
 
 > **Đề bài 2 — Ceramics Manufacturing Pipeline**: AI phân tích đơn hàng gốm · Điều phối quy trình sản xuất đa bước · Cảnh báo sự cố/tiến độ qua Telegram · Dashboard Kanban realtime
