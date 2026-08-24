@@ -73,10 +73,10 @@ flowchart TB
     end
     P & E & R --> LLM
 
-    subgraph DB[("MySQL + Prisma")]
-        H("HistoricalBatch<br/>embedding RAG")
-        K("KnowledgeDoc/Chunk")
-        B("Batch · StageLog · Alert")
+    subgraph DB["🗄️ MySQL + Prisma"]
+        H["HistoricalBatch<br/>embedding RAG"]
+        K["KnowledgeDoc/Chunk"]
+        B["Batch · StageLog · Alert"]
     end
 
     E -.->|"top-3 cosine"| H
@@ -155,7 +155,7 @@ Trong group: mọi thông báo stage đều kèm nút **✅ Xác nhận hoàn th
 | ⚠️ `/baocao` báo lỗi | Chọn mẻ → chọn mức độ 🟢🟡🔴 → mô tả tự do → tạo Alert. State lưu bảng `PendingReport` (TTL 5 phút, không mất khi restart) |
 | 👤 DM menu cá nhân | Thợ (đã cấp quyền qua `worker:add`) nhắn riêng bot: chọn công đoạn phụ trách → bot **tự ping khi có mẻ mới đổ về đúng công đoạn đó** kèm nút nhận mẻ |
 | 🙋 Nhận mẻ | Ghi nhận người phụ trách trên Batch, danh sách hiện badge 👤, cho phép nhận đè có cảnh báo |
-| 🔐 Bảo mật | Chỉ chat đã cấu hình được điều khiển; người lạ DM bị chặn kèm hướng dẫn ID
+| 🔐 Bảo mật | Chỉ chat đã cấu hình được điều khiển; người lạ DM bị chặn kèm hướng dẫn ID |
 
 ---
 
@@ -163,25 +163,30 @@ Trong group: mọi thông báo stage đều kèm nút **✅ Xác nhận hoàn th
 
 | Method | Endpoint | Mô tả |
 |---|---|---|
+| `POST` | `/orders/parse` | Chạy Parser + Estimator + Risk, trả preview trực tiếp |
 | `GET` | `/orders/parse/stream?text=` | **SSE** reasoning trace Parser → Estimator → Risk, trả preview (không lưu) |
-| `POST` | `/orders/confirm` | Human-in-the-loop: persist Order+Batch sau khi người dùng duyệt |
-| `GET` | `/batches` | Danh sách mẻ cho Kanban |
+| `POST` | `/orders/confirm` | Human-in-the-loop: persist Order + Batch + stageEstimates sau khi duyệt |
+| `GET` | `/batches` | Danh sách mẻ cho Kanban (kèm progress từng công đoạn từ AI) |
 | `PATCH` | `/batches/:id/stage` | Tiến 1 công đoạn (atomic, chống double-advance) |
+| `PATCH` | `/batches/:id/actuals` | Ghi nhận số liệu thực tế (đất/giờ/men thật) → archive RAG |
 | `POST` | `/batches/:id/qc-report` | Báo lỗi QC → phân loại ngưỡng trong code → Alert + Telegram |
 | `POST` | `/scheduler/run` | Chạy Scheduler Agent (LLM + fallback greedy) |
 | `GET` | `/alerts` | Feed cảnh báo |
 | `POST` | `/knowledge/ask` | RAG Q&A kèm nguồn |
+| `GET` | `/cms/content` | Nội dung landing page (public) |
+| `PUT` | `/cms/content` | Cập nhật nội dung landing (cần header `x-cms-token`) |
 | `POST` | `/monitor/tick` | Kích hoạt monitor thủ công (demo) |
 | `POST` | `/telegram/test/*` | Giả lập nút/tin nhắn Telegram cho kiểm thử tự động |
 
 ## 🧪 Kiểm thử
 
 ```bash
-npm run test:retry-loop     # Self-correction loop: 4/4 scenario (malformed → tự sửa → fail rõ ràng)
-npm run --silent worker:add -- --id=... --name=...   # CLI cấp quyền thợ
+npm run test:retry-loop                       # Parser self-correction: 4/4 scenario
 cd apps/api
-npx tsx src/scripts/test-phase8.ts    # Telegram bot: race condition, pending hết hạn, bảo mật (20 checks)
-npx tsx src/scripts/test-phase86.ts   # DM menu: phân quyền, đổi công đoạn, broadcast group (29 checks)
+npx tsx src/scripts/test-phase8.ts            # Telegram group: race, expiry, security — 20 checks
+npx tsx src/scripts/test-phase86.ts           # DM menu, ping arrival, claim — 36 checks
+npx tsx src/scripts/test-stage-estimates.ts   # Per-stage duration RAG/cold-start/legacy — 12 checks
+npx tsx src/scripts/test-feedback-loop.ts     # Actuals → archive DONE → RAG learns — 11 checks
 ```
 
 ## 📁 Cấu trúc
@@ -189,17 +194,22 @@ npx tsx src/scripts/test-phase86.ts   # DM menu: phân quyền, đổi công đo
 ```
 kilnflow/
 ├── apps/
-│   ├── api/                 # NestJS — toàn bộ nghiệp vụ
-│   │   ├── src/agents/      # parser · estimator · risk-qc · scheduler · orchestrator
-│   │   ├── src/telegram/    # service + listener (inline button, DM menu)
-│   │   ├── src/{orders,batches,scheduler,knowledge,monitor,llm,embeddings}/
-│   │   ├── prisma/          # schema 9 models + seed
-│   │   └── entrypoint.sh    # wait DB → push → seed → ingest → start
-│   └── web/                 # Next.js App Router + Tailwind (Kanban, Order, Widget chat)
-├── packages/shared-types/   # DTO + Zod schema dùng chung 2 app
-├── knowledge-base/          # 9 tài liệu gốm sứ (.md) cho RAG
-├── docker-compose.yml       # mysql + api + web
-└── docs/demo-script.md      # kịch bản video demo
+│   ├── api/                        # NestJS — toàn bộ nghiệp vụ
+│   │   ├── src/agents/             # parser · estimator · risk-qc · scheduler · orchestrator
+│   │   ├── src/telegram/           # service + listener (inline button, DM menu, arrival ping)
+│   │   ├── src/cms/                # CMS controller/service (landing page content)
+│   │   ├── src/common/             # stage-duration.config (nguồn chung Monitor + UI)
+│   │   ├── src/{orders,batches,scheduler,knowledge,monitor,llm,embeddings,prisma,config}/
+│   │   ├── prisma/                # schema 11 models + seed + entrypoint.sh
+│   │   └── src/scripts/           # test suites + worker-add CLI
+│   └── web/                        # Next.js App Router + Tailwind (Landing, Kanban, Order, CMS, Knowledge chat)
+├── packages/shared-types/          # DTO + Zod schema dùng chung 2 app
+├── knowledge-base/                 # 9 tài liệu gốm sứ (.md) cho RAG
+├── docs/
+│   ├── demo-script.md              # Kịch bản quay video demo
+│   └── slides-rag.html             # Slide giới thiệu RAG (7 slides, phím ←/→)
+├── docker-compose.yml              # mysql + api + web (restart: always)
+└── .env.example                    # Biến môi trường mẫu
 ```
 
 ## 🌐 Deploy sau nginx (production-lite)
