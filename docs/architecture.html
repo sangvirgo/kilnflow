@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kilnflow — Kiến trúc AI & RAG — Giải thích chi tiết</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#020617;--card:#0f172a;--border:#1e293b;--text:#e2e8f0;--muted:#94a3b8;--accent:#818cf8;--accent2:#e879f9;--emerald:#34d399;--amber:#fbbf24;--red:#f87171;}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.7;}
+h1,h2,h3,h4{font-weight:800;letter-spacing:-0.02em;}
+a{color:var(--accent);text-decoration:none;}
+code,pre{font-family:'JetBrains Mono',monospace;}
+pre{background:#0b1120;border:1px solid var(--border);border-radius:12px;padding:18px 20px;overflow-x:auto;font-size:13.5px;line-height:1.6;color:#c4b5fd;margin:14px 0;}
+code{background:rgba(99,102,241,.12);padding:2px 7px;border-radius:6px;font-size:.88em;color:#a5b4fc;}
+.highlight{color:var(--emerald);font-weight:600;}
+.warn{color:var(--amber);font-weight:600;}
+.danger{color:var(--red);font-weight:600;}
+.accent{color:var(--accent);font-weight:700;}
+.grad{background:linear-gradient(90deg,#818cf8,#e879f9,#fcd34d);-webkit-background-clip:text;background-clip:text;color:transparent;}
+
+/* Sections */
+.section{max-width:960px;margin:0 auto;padding:70px 24px;}
+.section-alt{background:#0f172a;}
+.tag{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2.5px;padding:5px 14px;border-radius:999px;margin-bottom:16px;}
+.tag-purple{background:rgba(129,140,248,.12);color:#818cf8;border:1px solid rgba(129,140,248,.25);}
+.tag-emerald{background:rgba(52,211,153,.12);color:#34d399;border:1px solid rgba(52,211,153,.25);}
+.tag-amber{background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.25);}
+.tag-rose{background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.25);}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px 30px;margin:16px 0;}
+.card-accent{border-color:rgba(129,140,248,.35);}
+.card-emerald{border-color:rgba(52,211,153,.35);}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+@media(max-width:768px){.grid2,.grid3{grid-template-columns:1fr;}}
+
+/* Comparison boxes */
+.compare{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center;margin:24px 0;}
+.compare-box{border-radius:12px;padding:24px;text-align:center;}
+.compare-arrow{font-size:36px;color:var(--accent);text-align:center;}
+
+/* Expandable code */
+details{margin:10px 0;}
+details summary{cursor:pointer;font-weight:600;font-size:15px;color:var(--accent);padding:8px 0;user-select:none;}
+details summary:hover{color:#a5b4fc;}
+details[open] summary{margin-bottom:8px;}
+
+/* Pipeline diagram */
+.pipeline{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin:30px 0;}
+.pipe-node{background:var(--card);border:2px solid var(--border);border-radius:14px;padding:14px 20px;text-align:center;min-width:120px;transition:all .3s;position:relative;}
+.pipe-node:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 8px 30px rgba(99,102,241,.15);}
+.pipe-node.active{border-color:var(--emerald);box-shadow:0 0 20px rgba(52,211,153,.25);}
+.pipe-arrow{color:var(--accent);font-size:20px;opacity:.6;}
+.pipe-label{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-top:6px;}
+
+/* Animated flow line */
+@keyframes flowPulse{0%,100%{opacity:.3;transform:scaleX(1);}50%{opacity:1;transform:scaleX(1.1);}}
+.flow-line{height:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;margin:0 6px;animation:flowPulse 2s ease-in-out infinite;flex:1;}
+
+/* Code block label */
+.code-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:-4px;padding-left:4px;}
+.file{font-size:12px;color:var(--muted);opacity:.7;}
+
+/* Stats */
+.stat{text-align:center;padding:20px;}
+.stat-val{font-size:42px;font-weight:900;}
+.stat-label{font-size:13px;color:var(--muted);margin-top:4px;}
+
+/* Step indicators */
+.step-row{display:flex;gap:20px;margin:20px 0;}
+.step-num{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#fff;flex-shrink:0;}
+.step-content{flex:1;}
+.step-content h4{font-size:17px;color:#fff;margin-bottom:4px;}
+.step-content p{font-size:15px;color:var(--muted);}
+
+/* Table */
+table{width:100%;border-collapse:collapse;margin:14px 0;}
+th{text-align:left;padding:10px 14px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);border-bottom:1px solid var(--border);}
+td{padding:10px 14px;font-size:15px;border-bottom:1px solid var(--border);}
+td b{color:#fff;}
+
+/* Navigation */
+.nav{position:fixed;top:0;left:0;right:0;z-index:50;background:rgba(2,6,23,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:16px;}
+.nav-logo{font-weight:900;font-size:18px;}
+.nav a{font-size:13px;color:var(--muted);transition:color .2s;}
+.nav a:hover{color:#fff;}
+
+/* Scroll indicator */
+.scroll-top{position:fixed;bottom:24px;right:24px;z-index:50;width:44px;height:44px;border-radius:12px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .3s;font-size:18px;}
+.scroll-top.visible{opacity:1;}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<div class="nav">
+  <div class="nav-logo"><span class="grad">🏺 Kilnflow</span></div>
+  <a href="#vande">Vấn đề</a>
+  <a href="#rag">RAG</a>
+  <a href="#embedding">Embedding</a>
+  <a href="#pipeline">Pipeline</a>
+  <a href="#agents">Agents</a>
+  <a href="#loop">Feedback</a>
+  <a href="#fallback">Bảo mật</a>
+  <a href="https://task.tansang.dpdns.org/" target="_blank" style="color:var(--emerald);">🟢 Live Demo</a>
+</div>
+<div style="height:56px;"></div>
+
+<!-- HERO -->
+<div class="section" style="text-align:center;padding-top:80px;">
+  <div class="tag tag-purple">Technical Deep Dive + Non-technical Friendly</div>
+  <h1 style="font-size:clamp(32px,5vw,56px);">Kiến trúc <span class="grad">AI + RAG</span> trong<br>Kilnflow</h1>
+  <p style="font-size:18px;color:var(--muted);max-width:720px;margin:20px auto 0;">Cách hệ thống dùng <strong style="color:#fff;">dữ liệu sản xuất thật</strong> để AI không bịa số, kèm mọi dòng code thật đang chạy production.</p>
+</div>
+
+<!-- ============================================================ -->
+<!-- VẤN ĐỀ -->
+<!-- ============================================================ -->
+<div class="section-alt">
+<div class="section">
+  <div class="tag tag-rose">① Vấn đề</div>
+  <h2>LLM giỏi ngôn ngữ nhưng <span class="danger">bịa số rất chuyên nghiệp</span></h2>
+  <p style="font-size:17px;color:var(--muted);margin:12px 0 24px;">Hỏi ChatGPT trực tiếp một câu đơn giản...</p>
+  
+  <div class="compare">
+    <div class="compare-box" style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);">
+      <div style="font-size:28px;">🤖</div>
+      <h4 style="color:#f87171;margin:8px 0 4px;">Trả lời của AI</h4>
+      <div style="font-size:36px;font-weight:900;color:#f87171;">420 kg đất</div>
+      <p style="font-size:13px;color:var(--muted);margin-top:6px;">"trông hợp lý" nhưng không có cơ sở</p>
+    </div>
+    <div class="compare-arrow">→</div>
+    <div class="compare-box" style="background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.25);">
+      <div style="font-size:28px;">📊</div>
+      <h4 style="color:var(--emerald);margin:8px 0 4px;">Số thật trong kho</h4>
+      <table style="margin:0;">
+        <tr><td>Lọ hoa sen 35cm</td><td style="text-align:right"><b>74 kg</b></td></tr>
+        <tr><td>Lọ hoa sen 30cm</td><td style="text-align:right"><b>55 kg</b></td></tr>
+        <tr><td>Lọ hoa lá tre 28cm</td><td style="text-align:right"><b>47 kg</b></td></tr>
+      </table>
+      <p style="font-size:13px;color:var(--muted);margin-top:6px;">...không cần đoán, đã có sẵn trong hệ thống</p>
+    </div>
+  </div>
+
+  <div class="card" style="text-align:center;border-color:rgba(251,191,36,.35);">
+    <p style="font-size:16px;"><strong style="color:#fbbf24;">Nguyên nhân:</strong> LLM chỉ có kiến thức chung chung — nó chưa từng thấy "mẻ gốm nào của xưởng này dùng bao nhiêu đất".<br>
+    <strong style="color:#fff;">Giải pháp:</strong> Cho AI đọc dữ liệu THẬT trước khi trả lời.</p>
+  </div>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- RAG -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="tag tag-emerald">② Giải pháp: RAG</div>
+  <h2>Retrieval-Augmented Generation</h2>
+  <p style="font-size:18px;color:var(--muted);margin:12px 0 30px;">Thay vì để AI "nhớ mang máng", ta <strong style="color:#fff;">tra cứu</strong> dữ liệu thật trước, rồi mới để AI trả lời dựa trên bằng chứng cụ thể.</p>
+
+  <div class="card card-emerald">
+    <h3 style="color:var(--emerald);margin-bottom:12px;">💡 Giải thích không thuật ngữ</h3>
+    <p style="font-size:17px;">Tưởng tượng bạn đến hiệu thuốc mua thuốc:</p>
+    <ul style="margin:12px 0;padding-left:24px;">
+      <li style="margin-bottom:8px;"><strong style="color:#fff;">Cách cũ (LLM)</strong>: Hỏi bác sĩ — bác sĩ nhớ lại sách giáo khoa, trả lời approximate. Đôi khi sai.</li>
+      <li style="margin-bottom:8px;"><strong style="color:#fff;">Cách RAG</strong>: Hỏi bác sĩ → bác sĩ <u>mở hồ sơ bệnh án của bạn</u> → đọc thuốc đang dùng, lịch sử dị ứng → trả lời chính xác dựa trên hồ sơ.</li>
+    </ul>
+    <p style="font-size:17px;margin-top:10px;">RAG = "mở hồ sơ" cho AI trước khi trả lời.</p>
+  </div>
+
+  <h3 style="margin-top:32px;">3 bước RAG trong Kilnflow</h3>
+  <div class="grid3" style="margin-top:16px;">
+    <div class="card">
+      <div class="step-num" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);">1</div>
+      <h4 style="margin:8px 0 4px;">🔎 RETRIEVE</h4>
+      <p>Chuyển câu hỏi thành "tọa độ toán học" → tìm trong kho những mẻ lịch sử <b>gần nhau nhất</b> (top-3).</p>
+    </div>
+    <div class="card">
+      <div class="step-num" style="background:linear-gradient(135deg,#7c3aed,#a21caf);">2</div>
+      <h4 style="margin:8px 0 4px;">📎 AUGMENT</h4>
+      <p>Ghép thông tin 3 mẻ tìm được vào prompt: "Dưới đây là 3 mẻ tương tự nhất...".</p>
+    </div>
+    <div class="card">
+      <div class="step-num" style="background:linear-gradient(135deg,#a21caf,#d946ef);">3</div>
+      <h4 style="margin:8px 0 4px;">🤖 GENERATE</h4>
+      <p>AI trả lời dựa TRÊN bằng chứng đã có, kèm con số chính xác + nguồn trích dẫn.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- EMBEDDING -->
+<!-- ============================================================ -->
+<div class="section-alt">
+<div class="section">
+  <div class="tag tag-purple">③ Embedding — Biến chữ thành số</div>
+  <h2>Máy tính hiểu "gần nhau" bằng <span class="grad">toán học</span></h2>
+  <p style="font-size:17px;color:var(--muted);margin:12px 0 20px;">Máy tính không đọc được "men xanh ngọc" ≈ "celadon". Nó cần chuyển thành <strong style="color:#fff;">vector số</strong>.</p>
+
+  <div class="card card-accent">
+    <h3>🗺️ Giải thích bằng GPS</h3>
+    <p style="font-size:16px;">Giống như GPS:
+      <strong style="color:#fff;">Hà Nội</strong> có tọa độ <code>(21.0285, 105.8542)</code>,
+      <strong style="color:#fff;">Hải Phòng</strong> có tọa độ <code>(20.8449, 106.6882)</code>.
+      Khoảng cách giữa 2 điểm = 120km → <em>rất gần</em>.</p>
+    <p style="font-size:16px;margin-top:12px;">Tương tự, mỗi mô tả mẻ gốm được chuyển thành <strong style="color:#fff;">vector 768 chiều</strong>:
+    </p>
+    <pre><span style="color:#94a3b8;">// Mô tả:</span> <span style="color:#34d399;">"lọ hoa sen 35cm men xanh ngọc"</span>
+<span style="color:#94a3b8;">// → embedding:</span> <span style="color:#818cf8;">[0.12, -0.08, 0.45, 0.23, ..., 0.67]</span> <span style="color:#94a3b8;">// 768 con số</span>
+
+<span style="color:#94a3b8;">// Mô tả khác:</span> <span style="color:#34d399;">"lo hoa sen 35cm men xanh ngoc"</span> <span style="color:#94a3b8;">// KHÔNG CÓ DẤU!</span>
+<span style="color:#94a3b8;">// → embedding:</span> <span style="color:#818cf8;">[0.11, -0.07, 0.44, 0.22, ..., 0.65]</span> <span style="color:#94a3b8;">// GẦN GIỐNG HỆT</span></pre>
+    <p style="font-size:15px;color:var(--muted);margin-top:8px;">Dù khác chữ, <strong style="color:#fff;">vector gần nhau</strong> → hệ thống biết 2 mô tả này liên quan.</p>
+  </div>
+
+  <details>
+    <summary>Xem code embedding thật trong Kilnflow</summary>
+    <div class="code-label">embeddings.core.ts — Gemini Embedding Provider</div>
+    <pre>// Gemini embedding: biến text → vector 768 chiều
+export class GeminiEmbeddingProvider implements EmbeddingProvider {
+  readonly modelTag = 'gemini-embedding-001';
+  readonly dim = 768;
+
+  async embed(texts: string[]): Promise&lt;number[][]&gt; {
+    const res = await fetch(geminiEndpoint, {
+      method: 'POST',
+      body: JSON.stringify({
+        requests: texts.map((text) => ({
+          model: 'models/gemini-embedding-001',
+          content: { parts: [{ text }] },
+          outputDimensionality: 768,  // ← 768 chiều
+        })),
+      }),
+    });
+    return res.embeddings.map((e) => e.values); // → [[0.12, -0.08, ...], ...]
+  }
+}</pre>
+    <p style="font-size:14px;color:var(--muted);margin-top:8px;">Nếu Gemini API lỗi → tự chuyển sang <code>LocalHashEmbeddingProvider</code> (deterministic, dùng được offline, cùng vector-space).</p>
+  </details>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- COSINE SIMILARITY -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="tag tag-amber">④ Cosine Similarity — Đo sự "gần"</div>
+  <h2>Hai vector <span class="grad">gần nhau</span> = hai ý nghĩa gần nhau</h2>
+
+  <div class="grid2" style="margin-top:20px;">
+    <div class="card">
+      <h3 style="color:var(--emerald);">📐 Cosine Similarity</h3>
+      <p style="font-size:15px;margin:8px 0;">Đo góc θ giữa 2 vector:</p>
+      <pre>cos(θ) = (A · B) / (‖A‖ × ‖B‖)
+
+• cos = 1.0  → giống hệt (góc 0°)
+• cos = 0.8  → rất gần (góc 37°)
+• cos = 0.5  → có liên quan (góc 60°)
+• cos = 0.0  → không liên quan (góc 90°)</pre>
+    </div>
+    <div class="card">
+      <h3 style="color:#818cf8;">🎯 Kết quả thật</h3>
+      <p style="font-size:15px;">Khi hỏi <code>"lọ hoa sen 35cm men xanh ngọc"</code>:</p>
+      <table>
+        <tr><td>Lọ hoa sen 35cm</td><td style="text-align:right"><span class="highlight">86%</span> giống</td></tr>
+        <tr><td>Lọ hoa sen 30cm</td><td style="text-align:right"><span class="highlight">81%</span></td></tr>
+        <tr><td>Lọ hoa lá tre 28cm</td><td style="text-align:right"><span class="accent">71%</span></td></tr>
+      </table>
+      <p style="font-size:13px;color:var(--muted);margin-top:8px;">Gemini embedding tìm bằng ngữ nghĩa (không chỉ so chữ cái) → cả "men xanh ngọc" và "celadon" đều match.</p>
+    </div>
+  </div>
+
+  <details>
+    <summary>Xem code cosine similarity thật</summary>
+    <div class="code-label">embeddings.core.ts</div>
+    <pre>export function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    dot += a[i] * b[i];   // tích vô hướng
+    na  += a[i] * a[i];   // ‖A‖²
+    nb  += b[i] * b[i];   // ‖B‖²
+  }
+  return dot / (Math.sqrt(na) * Math.sqrt(nb)); // → giá trị từ -1 đến 1
+}
+
+// Trọng số = sim² → mẻ giống hơn → ảnh hưởng lớn hơn đến kết quả cuối</pre>
+  </details>
+</div>
+
+<!-- ============================================================ -->
+<!-- PIPELINE -->
+<!-- ============================================================ -->
+<div class="section-alt">
+<div class="section">
+  <div class="tag tag-purple">⑤ Pipeline hoàn chỉnh</div>
+  <h2>Từ đơn hàng đến lò nung — <span class="grad">6 bước tự động</span></h2>
+
+  <div class="pipeline" id="pipelineDemo">
+    <div class="pipe-node" id="pn-user"><div style="font-size:24px;">👤</div><div class="pipe-label">Người dùng</div></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-node" id="pn-parser"><div style="font-size:24px;">🔍</div><div class="pipe-label">Parser</div></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-node" id="pn-estimator"><div style="font-size:24px;">📦</div><div class="pipe-label">Estimator</div></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-node" id="pn-risk"><div style="font-size:24px;">🛡️</div><div class="pipe-label">Risk/QC</div></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-node" id="pn-confirm"><div style="font-size:24px;">✔️</div><div class="pipe-label">Xác nhận</div></div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-node" id="pn-batch"><div style="font-size:24px;">🏭</div><div class="pipe-label">Production</div></div>
+  </div>
+
+  <div style="text-align:center;margin:12px 0 30px;">
+    <button onclick="animatePipeline()" style="background:linear-gradient(135deg,#4f46e5,#a21caf);color:#fff;border:none;padding:12px 32px;border-radius:12px;font-weight:700;cursor:pointer;font-size:15px;">▶ Chạy demo pipeline</button>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3 style="color:#818cf8;">🔍 Parser Agent</h3>
+      <p style="font-size:15px;">Chuyển mô tả tự do thành JSON chuẩn 12 trường.</p>
+      <pre><span style="color:#94a3b8;">// Input:</span> <span style="color:#34d399;">"200 lọ hoa sen, men xanh ngọc, cao 35cm, 1280°C, 10 ngày"</span>
+
+<span style="color:#94a3b8;">// Output (Zod validated):</span>
+{
+  "product_name": <span style="color:#34d399;">"lọ hoa"</span>,
+  "quantity": <span style="color:#818cf8;">200</span>,
+  "firing_temp_c": <span style="color:#818cf8;">1280</span>,
+  "estimated_clay_kg": <span style="color:#818cf8;">420</span>,  <span style="color:#f87171;">// ← Parser đoán bằng công thức</span>
+  "priority": <span style="color:#34d399;">"medium"</span>,  <span style="color:#34d399;">// ← code tính: deadline 10 ngày</span>
+  "assumptions": [<span style="color:#fbbf24;">"Ước lượng đất theo công thức..."</span>]
+}</pre>
+      <p style="font-size:13px;color:var(--muted);margin-top:6px;">⚠️ Lưu ý: <code>estimated_clay_kg=420</code> là SAI — Parser dùng công thức tĩnh, Estimator sẽ sửa ở bước sau.</p>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--emerald);">📦 Estimator Agent (RAG)</h3>
+      <p style="font-size:15px;">Tìm mẻ lịch sử tương tự → tính weighted avg → <strong style="color:#fff;">hiệu chỉnh Parser</strong>.</p>
+      <pre><span style="color:#94a3b8;">// RAG: top-3 mẻ tương tự nhất</span>
+<span style="color:#34d399;">Lọ hoa sen 35cm → sim=0.86 → clay=74kg, hours=14h</span>
+<span style="color:#34d399;">Lọ hoa sen 30cm → sim=0.81 → clay=55kg, hours=12h</span>
+<span style="color:#818cf8;">Lọ hoa lá tre  → sim=0.71 → clay=47kg, hours=12h</span>
+
+<span style="color:#94a3b8;">// Weighted average (sim²):</span>
+clay = (74×0.86² + 55×0.81² + 47×0.71²) / (0.86²+0.81²+0.71²)
+     = <span style="color:#34d399;font-weight:700;">60.3 kg</span>  <span style="color:#34d399;">(thay vì 420 kg!)  </span>
+
+<span style="color:#94a3b8;">// Hiệu chỉnh parsed object:</span>
+parsed.estimated_clay_kg = <span style="color:#34d399;">60.3</span>   <span style="color:#34d399;">// ← RAG sửa Parser</span>
+parsed.estimated_firing_hours = <span style="color:#34d399;">12.8</span></pre>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-top:16px;">
+    <div class="card">
+      <h3 style="color:#f87171;">🛡️ Risk/QC Agent</h3>
+      <p style="font-size:15px;">Kiểm tra 3 bước theo <strong style="color:#fff;">luật tính trong code</strong>, LLM chỉ viết lời cảnh báo.</p>
+      <pre><span style="color:#94a3b8;">///rulesHint — ngưỡng tính bằng CODE, không phụ thuộc LLM</span>
+rulesHint = {
+  tempGlazeMismatch: false,     <span style="color:#34d399;">// stoneware +1280°C → OK</span>
+  clayDeviationPct: 3,          <span style="color:#34d399;">// 60.3kg vs 59kg avg → lệch 3%</span>
+  deadlineTightByRule: false    <span style="color:#34d399;">// deadline 10ng > ngưỡng 7ng</span>
+}
+<span style="color:#34d399;">→ KHÔNG CÓ rủi ro → proceed=true → nút xanh lá</span></pre>
+    </div>
+    <div class="card">
+      <h3 style="color:#fbbf24;">⏱️ Ước lượng 6 công đoạn (Phase 9)</h3>
+      <p style="font-size:15px;">Mỗi mẻ có ước lượng <strong style="color:#fff;">riêng</strong> cho 6 công đoạn (RAG weighted avg từ stageDurationsHours).</p>
+      <table>
+        <tr><th>Công đoạn</th><th>Ước lượng</th><th>Nguồn</th></tr>
+        <tr><td>Tạo hình</td><td><b>≈ 12.5h</b></td><td>RAG (3 mẻ sen)</td></tr>
+        <tr><td>Phơi khô</td><td><b>≈ 37.4h</b></td><td>RAG</td></tr>
+        <tr><td>Vẽ</td><td><b>≈ 16.3h</b></td><td>RAG</td></tr>
+        <tr><td>Tráng men</td><td><b>≈ 11.1h</b></td><td>RAG</td></tr>
+        <tr><td>Nung lò</td><td><b>≈ 13.4h</b></td><td>RAG (khớp estimated_firing_hours)</td></tr>
+        <tr><td>QC</td><td><b>≈ 3.2h</b></td><td>RAG</td></tr>
+        <tr><td style="font-weight:800;color:#fff;">Tổng</td><td style="font-weight:800;color:#fff;">≈ 93.9h</td><td></td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 5 AGENTS -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="tag tag-purple">⑥ Đội hình 5 AI Agents + 1 Monitor</div>
+  <h2>Mỗi agent một nhiệm vụ hẹp — <span class="grad">phối hợp thành quy trình</span></h2>
+  <p style="font-size:17px;color:var(--muted);margin:8px 0 20px;">Không có "mega-agent làm tất cả" — mỗi agent có đúng 1 trách nhiệm, tổng hợp bởi Orchestrator.</p>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+    <div class="card" style="border-left:4px solid #818cf8;">
+      <div style="font-size:24px;margin-bottom:6px;">🔍 Parser</div>
+      <p style="font-size:14px;"><b>Mô tả tự do → JSON.</b> Few-shot prompt + Zod strict validation. Self-correction loop tối đa 2 lần. Rule dấu tiếng Việt enforced ở prompt.</p>
+      <p class="file">parser.agent.ts · parser.prompts.ts</p>
+    </div>
+    <div class="card" style="border-left:4px solid #34d399;">
+      <div style="font-size:24px;margin-bottom:6px;">📦 Estimator</div>
+      <p style="font-size:14px;"><b>RAG weighted avg.</b> Embedding 768d → cosine top-3 → sim²-weighted cho clay/hours/6 stages. Cold-start → formula. Cập nhật kho khi batch DONE.</p>
+      <p class="file">estimator.agent.ts · stage-duration.config.ts</p>
+    </div>
+    <div class="card" style="border-left:4px solid #f87171;">
+      <div style="font-size:24px;margin-bottom:6px;">🛡️ Risk/QC</div>
+      <p style="font-size:14px;"><b>Luật trong code, LLM diễn giải.</b> RulesHint deterministic; prompt bắt buộc tuân theo; fallback mirror exact logic. QC ngưỡng >15% critical.</p>
+      <p class="file">risk-qc.agent.ts · risk-qc.prompts.ts</p>
+    </div>
+    <div class="card" style="border-left:4px solid #fbbf24;">
+      <div style="font-size:24px;margin-bottom:6px;">🗓 Scheduler</div>
+      <p style="font-size:14px;"><b>Xếp lò theo ưu tiên/deadline/capacity.</b> LLM đề xuất → sanity-check code → fallback greedy. Zod + capacity validation.</p>
+      <p class="file">scheduler.agent.ts · greedy.util.ts</p>
+    </div>
+    <div class="card" style="border-left:4px solid #a78bfa;">
+      <div style="font-size:24px;margin-bottom:6px;">📚 Knowledge</div>
+      <p style="font-size:14px;"><b>RAG tài liệu kỹ thuật.</b> 9 file .md → embedding + cosine top-4 → LLM trả lời có [Source N]. Keyword fallback khi vector mismatch.</p>
+      <p class="file">knowledge.service.ts</p>
+    </div>
+    <div class="card" style="border-left:4px solid #64748b;">
+      <div style="font-size:24px;margin-bottom:6px;">🐢 Monitor</div>
+      <p style="font-size:14px;"><b>Tự phát hiện trễ.</b> @Interval 5 phút, so lastStageChangeAt vs expected durations (cùng source config với UI progress bar). Alert + Telegram tự động.</p>
+      <p class="file">monitor.service.ts · stage-duration.config.ts</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- FEEDBACK LOOP -->
+<!-- ============================================================ -->
+<div class="section-alt">
+<div class="section">
+  <div class="tag tag-emerald">⑦ Feedback Loop — Tự học từ dữ liệu thật</div>
+  <h2>Vòng lặp khép kín: <span class="grad">càng làm → càng chính xác</span></h2>
+
+  <div class="card card-emerald" style="padding:40px;">
+    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px 40px;align-items:center;">
+      <div class="pipe-node active"><div style="font-size:22px;">📥</div><div style="font-size:13px;font-weight:700;margin-top:4px;">Đơn mới</div></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node"><div style="font-size:22px;">🤖</div><div style="font-size:13px;font-weight:700;margin-top:4px;">Estimator</div></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node"><div style="font-size:22px;">🏭</div><div style="font-size:13px;font-weight:700;margin-top:4px;">Sản xuất</div></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node"><div style="font-size:22px;">✅</div><div style="font-size:13px;font-weight:700;margin-top:4px;">DONE</div></div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node"><div style="font-size:22px;">📚</div><div style="font-size:13px;font-weight:700;margin-top:4px;">Archive</div></div>
+      <div class="pipe-arrow" style="transform:rotate(-180deg);">→</div>
+    </div>
+    <div style="text-align:center;margin-top:16px;padding:16px;background:rgba(52,211,153,.1);border-radius:12px;border:1px dashed rgba(52,211,153,.3);">
+      <p style="font-size:16px;"><strong style="color:var(--emerald);">Phase 9.6:</strong> Khi batch DONE → tự tạo HistoricalBatch từ số liệu THỰC (StageLog duration + estimatedClayKg) → embedding + lưu kho → đơn sau dùng để ước lượng.</p>
+      <pre style="margin-top:8px;text-align:left;font-size:12px;">// batches.service.ts → archiveToHistory()
+await prisma.historicalBatch.create({
+  productName: batch.productName,
+  actualClayKg: batch.actualClayKg ?? batch.estimatedClayKg,
+  stageDurationsHours: durations,  // từ StageLog đo được
+  embedding: embed(productName + glazeType),  // cùng modelTag
+  embeddingModel: this.embeddings.modelTag,   // = vector-space hiện tại
+});</pre>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- FALLBACK -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="tag tag-rose">⑧ Bảo mật & Fallback — Không bao giờ "chết"</div>
+  <h2>Mọi tầng đều có <span class="grad">phương án dự phòng</span></h2>
+
+  <table style="margin-top:16px;">
+    <thead><tr><th>Tình huống</th><th>Xử lý</th><th>Code</th></tr></thead>
+    <tbody>
+      <tr><td>LLM key sai → HTTP 400</td><td>Parser ném <code>AppError(502)</code> ngay (không giả schema error)</td><td class="file">parser.agent.ts</td></tr>
+      <tr><td>Gemini embedding lỗi</td><td>Tự chuyển <code>LocalHashProvider</code> vĩnh viễn trong process</td><td class="file">embeddings.service.ts</td></tr>
+      <tr><td>Vector mismatch (local↔gemini)</td><td>Fallback keyword overlap khi 0 chunk match modelTag</td><td class="file">knowledge.service.ts</td></tr>
+      <tr><td>LLM trả JSON sai schema</td><td>Self-correction 2 lần → <code>AgentValidationError(422)</code></td><td class="file">parser.agent.ts</td></tr>
+      <tr><td>Mẻ trễ >30% duration</td><td>Monitor Alert + Telegram tự động</td><td class="file">monitor.service.ts</td></tr>
+      <tr><td>Double-advance 2 người bấm</td><td><code>UPDATE WHERE currentStage=X</code> atomic → đúng 1 người</td><td class="file">batches.service.ts</td></tr>
+      <tr><td>Timeout LLM 45s</td><td><code>AbortController.abort()</code> truyền vào fetch → retry nếu lỗi mạng</td><td class="file">llm.core.ts</td></tr>
+      <tr><td>Người lạ DM bot</td><td>Bị chặn + hướng dẫn ID để cấp quyền</td><td class="file">telegram.listener.ts</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<!-- RESULT -->
+<!-- ============================================================ -->
+<div class="section-alt">
+<div class="section" style="text-align:center;">
+  <div class="tag tag-emerald">Kết quả</div>
+  <h2 style="font-size:36px;">Từ 420kg bịa → <span class="grad">60.3kg chính xác</span></h2>
+  <div class="grid3" style="margin-top:30px;">
+    <div class="stat"><div class="stat-val grad">12+</div><div class="stat-label">Mẻ lịch sử trong kho RAG</div></div>
+    <div class="stat"><div class="stat-val grad">86%</div><div class="stat-label">Độ giống cao nhất tìm được</div></div>
+    <div class="stat"><div class="stat-val grad">93.9h</div><div class="stat-label">Tổng chu kỳ sản xuất ước tính</div></div>
+  </div>
+  <div class="card" style="max-width:640px;margin:30px auto;text-align:left;">
+    <p style="font-size:16px;"><strong style="color:#fff;">Con số cuối cùng:</strong></p>
+    <ul style="padding-left:24px;margin-top:8px;">
+      <li>Parser đoán: <span class="danger">420 kg</span> (công thức tĩnh)</li>
+      <li>Estimator sửa: <span class="highlight">60.3 kg</span> (RAG 3 mẻ sen)</li>
+      <li>Risk soi: lệch 3% → <span class="highlight">OK</span> → recommend_proceed = true</li>
+      <li>Người dùng xác nhận → Batch lưu <b>60.3 kg</b> → khi DONE → archive → đơn sau chính xác hơn</li>
+    </ul>
+  </div>
+  <p style="margin-top:30px;font-size:16px;color:var(--muted);">
+    🏺 <strong style="color:#fff;">Kilnflow</strong> — AI không bariat số, con người giữ tay phanh cuối cùng.<br>
+    <a href="https://task.tansang.dpdns.org/" target="_blank" style="color:var(--emerald);font-weight:600;">Xem demo live →</a>
+  </p>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- FOOTER -->
+<!-- ============================================================ -->
+<footer style="border-top:1px solid var(--border);padding:40px 24px;text-align:center;">
+  <p style="font-size:14px;color:var(--muted);">Nguyễn Lưu Tấn Sang — Software Engineer Fresher<br>
+  Built with Next.js · NestJS · Gemini · Telegram · MySQL · TypeScript</p>
+</footer>
+
+<script>
+// Pipeline animation
+function animatePipeline(){
+  const nodes=['pn-user','pn-parser','pn-estimator','pn-risk','pn-confirm','pn-batch'];
+  nodes.forEach((id,i)=>{
+    setTimeout(()=>{
+      nodes.forEach(id2=>document.getElementById(id2)?.classList.remove('active'));
+      document.getElementById(id)?.classList.add('active');
+    }, i*600);
+  });
+  setTimeout(()=>nodes.forEach(id=>document.getElementById(id)?.classList.remove('active')), nodes.length*600+1500);
+}
+// Auto-animate on first view
+const obs=new IntersectionObserver(([e])=>{if(e.isIntersecting){animatePipeline();obs.disconnect();}},{threshold:0.4});
+if(document.getElementById('pipelineDemo')) obs.observe(document.getElementById('pipelineDemo'));
+
+// Scroll-to-top
+const stb=document.querySelector('.scroll-top');
+window.addEventListener('scroll',()=>{if(window.scrollY>400)stb?.classList.add('visible');else stb?.classList.remove('visible');});
+</script>
+<button class="scroll-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+</body>
+</html>
