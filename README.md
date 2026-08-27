@@ -189,6 +189,14 @@ Trong group: mọi thông báo stage đều kèm nút **✅ Xác nhận hoàn th
 | `POST` | `/monitor/tick` | Kích hoạt monitor thủ công (demo) |
 | `POST` | `/telegram/test/*` | Giả lập nút/tin nhắn Telegram cho kiểm thử tự động |
 
+## 📖 Kiến trúc chi tiết + RAG
+[Xem trang giải thích tương tác](https://task.tansang.dpdns.org:3100/architecture.html) —
+trang HTML 33KB giải thích toàn bộ luồng AI + code thật + lý thuyết RAG cho cả người không tech, bao gồm:
+pipeline animation, embedding/cosine giải thích bằng GPS analogy, 5 agents + code snippet thật,
+feedback loop diagram, và bảng fallback/bảo mật.
+
+---
+
 ## 🧪 Kiểm thử
 
 ```bash
